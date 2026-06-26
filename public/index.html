@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BLOKKO</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="hud">
+    <div id="player-count">Jogadores: <span id="count">1</span></div>
+    <div id="controls-info">WASD para mover</div>
+  </div>
+  <div id="joystick-zone"></div>
+  <div id="loading-screen">
+    <div class="loader"></div>
+    <p>Carregando BLOKKO...</p>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/",
+      "nipplejs": "https://cdn.jsdelivr.net/npm/nipplejs@0.10.2/+esm"
+    }
+  }
+  </script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

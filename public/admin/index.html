@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BLOKO Admin</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <h1>BLOKO</h1>
+        <span class="subtitle">Painel de Controle</span>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-btn active" data-tab="dashboard">Dashboard</button>
+        <button class="nav-btn" data-tab="features">Funcionalidades</button>
+        <button class="nav-btn" data-tab="environment">Ambiente 3D</button>
+        <button class="nav-btn" data-tab="network">Rede</button>
+        <button class="nav-btn" data-tab="rooms">Salas</button>
+        <button class="nav-btn" data-tab="stores">Lojas</button>
+        <button class="nav-btn" data-tab="debug">Debug</button>
+        <button class="nav-btn" data-tab="build">Build</button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="server-status" id="serverStatus">
+          <span class="status-dot offline"></span>
+          <span class="status-text">Desconectado</span>
+        </div>
+        <button class="btn btn-sm btn-outline" id="resetBtn">Resetar Padrões</button>
+      </div>
+    </aside>
+
+    <main id="main-content">
+      <header class="content-header">
+        <h2 id="pageTitle">Dashboard</h2>
+        <div class="header-actions">
+          <button class="btn btn-sm btn-outline" id="refreshBtn">Atualizar</button>
+          <a href="/" class="btn btn-sm btn-outline" target="_blank">Abrir Jogo</a>
+        </div>
+      </header>
+
+      <div class="tab-content active" id="tab-dashboard">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="statPlayers">0</div>
+            <div class="stat-label">Jogadores Online</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statRooms">0</div>
+            <div class="stat-label">Salas Ativas</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statStores">0</div>
+            <div class="stat-label">Lojas</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statTickRate">0</div>
+            <div class="stat-label">Tick Rate (tps)</div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Configuração Atual</h3>
+          <pre id="configPreview" class="config-preview"></pre>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-features">
+        <div class="card">
+          <h3>Liga/Desliga Funcionalidades</h3>
+          <p class="card-desc">Ative ou desative funcionalidades do projeto em tempo real.</p>
+          <div class="toggles-grid" id="featuresContainer"></div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-environment">
+        <div class="card">
+          <h3>Configurações do Ambiente 3D</h3>
+          <p class="card-desc">Controle cores, velocidade, câmera, iluminação e limites do mundo.</p>
+          <div class="form-grid" id="environmentContainer"></div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-network">
+        <div class="card">
+          <h3>Configurações de Rede</h3>
+          <p class="card-desc">Tick rate, porta do servidor, CORS e outros parâmetros de rede.</p>
+          <div class="form-grid" id="networkContainer"></div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-rooms">
+        <div class="card">
+          <h3>Configuração de Salas</h3>
+          <p class="card-desc">Limite de jogadores por sala e nome padrão.</p>
+          <div class="form-grid" id="roomsContainer"></div>
+        </div>
+        <div class="card">
+          <h3>Salas Ativas</h3>
+          <div id="roomsList"><p class="empty-state">Nenhuma sala encontrada.</p></div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-stores">
+        <div class="card">
+          <h3>Gerenciar Lojas</h3>
+          <p class="card-desc">Adicione, edite ou remova lojas do ambiente 3D.</p>
+          <div id="storesContainer"></div>
+        </div>
+        <div class="card">
+          <h3>Nova Loja</h3>
+          <form id="storeForm" class="store-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Nome</label>
+                <input type="text" name="name" required>
+              </div>
+              <div class="form-group">
+                <label>Slug</label>
+                <input type="text" name="slug" required>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Categoria</label>
+                <select name="category">
+                  <option value="alimentacao">Alimentação</option>
+                  <option value="saude">Saúde</option>
+                  <option value="servicos">Serviços</option>
+                  <option value="educacao">Educação</option>
+                  <option value="lazer">Lazer</option>
+                  <option value="outro">Outro</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>URL do Site</label>
+                <input type="url" name="site_url" placeholder="https://..." required>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Posição X</label>
+                <input type="number" name="pos_x" step="0.1" value="0">
+              </div>
+              <div class="form-group">
+                <label>Posição Z</label>
+                <input type="number" name="pos_z" step="0.1" value="0">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Status</label>
+                <select name="is_active">
+                  <option value="true">Ativo</option>
+                  <option value="false">Inativo</option>
+                </select>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Adicionar Loja</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-debug">
+        <div class="card">
+          <h3>Opções de Debug</h3>
+          <p class="card-desc">Ative ferramentas de desenvolvimento para depuração.</p>
+          <div class="toggles-grid" id="debugContainer"></div>
+        </div>
+        <div class="card">
+          <h3>Logs do Servidor</h3>
+          <div id="logsContainer">
+            <pre id="serverLogs" class="log-viewer">Aguardando logs...</pre>
+            <button class="btn btn-sm btn-outline mt-1" id="clearLogsBtn">Limpar Logs</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-build">
+        <div class="card">
+          <h3>Configurações de Build</h3>
+          <p class="card-desc">Parâmetros para geração procedural da cena 3D.</p>
+          <div class="form-grid" id="buildContainer"></div>
+        </div>
+        <div class="card">
+          <h3>Ações de Build</h3>
+          <div class="build-actions">
+            <button class="btn btn-primary" id="buildSceneBtn">Reconstruir Cena</button>
+            <button class="btn btn-outline" id="buildStatusBtn">Ver Status</button>
+          </div>
+          <pre id="buildOutput" class="build-output"></pre>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="admin.js"></script>
+</body>
+</html>
