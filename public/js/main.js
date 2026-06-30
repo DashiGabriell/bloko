@@ -182,6 +182,9 @@ socket.on('server:config', (cfg) => {
 });
 
 socket.on('current-players', (players) => {
+  for (const id of [...remotePlayers.keys()]) {
+    removeRemotePlayer(id);
+  }
   for (const p of players) {
     if (p.id === socket.id) continue;
     createRemotePlayer(p.id);
@@ -199,8 +202,10 @@ socket.on('current-players', (players) => {
 });
 
 socket.on('game-state', (players) => {
+  const activeIds = new Set();
   for (const p of players) {
     if (p.id === socket.id) continue;
+    activeIds.add(p.id);
     if (!remotePlayers.has(p.id)) {
       createRemotePlayer(p.id);
     }
@@ -209,6 +214,11 @@ socket.on('game-state', (players) => {
       rp.targetX = p.x;
       rp.targetZ = p.z;
       rp.rotation = p.rotation || 0;
+    }
+  }
+  for (const [id] of remotePlayers) {
+    if (!activeIds.has(id)) {
+      removeRemotePlayer(id);
     }
   }
   updateHUDCount();

@@ -9,6 +9,15 @@ const { spawn } = require('child_process');
 
 const configManager = require('./config/project-config');
 
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason?.message || reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('🚨 Uncaught Exception:', err.message);
+  console.error(err.stack);
+});
+
 const {
   upsertPlayer,
   updatePlayerPosition,
@@ -194,45 +203,76 @@ app.get('/api/admin/build/status', (req, res) => {
 });
 
 // ============================================================
+// HEALTH CHECK
+// ============================================================
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    uptime: process.uptime(),
+    players: playerIdToSocket.size,
+    tickRate: configManager.getConfig().network.tickRate,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// ============================================================
 // SOCKET.IO
 // ============================================================
 const playerSockets = new Map();
 const socketToPlayerId = new Map();
 const playerIdToSocket = new Map();
 
+function applyConfigToSocket(socket) {
+  try {
+    const cfg = configManager.getConfig();
+    socket.emit('server:config', {
+      environment: cfg.environment,
+      features: cfg.features,
+      debug: cfg.debug,
+      network: { tickRate: cfg.network.tickRate },
+    });
+  } catch (err) {
+    console.error('Erro ao enviar config para socket:', err.message);
+  }
+}
+
 io.on('connection', (socket) => {
-  const currentCfg = configManager.getConfig();
   console.log(`Jogador conectado: ${socket.id}`);
 
-  socket.emit('server:config', {
-    environment: currentCfg.environment,
-    features: currentCfg.features,
-    debug: currentCfg.debug,
-    network: { tickRate: currentCfg.network.tickRate },
-  });
+  let destroyed = false;
+
+  socket.once('disconnect', () => { destroyed = true; });
+
+  applyConfigToSocket(socket);
 
   socket.on('player:join', async (data) => {
-    if (!currentCfg.features.multiplayer) {
-      socket.emit('error', { message: 'Multiplayer desativado' });
-      return;
-    }
+    try {
+      if (!configManager.getConfig().features.multiplayer) {
+        socket.emit('error', { message: 'Multiplayer desativado' });
+        return;
+      }
 
-    const playerId = crypto.randomUUID();
-    socketToPlayerId.set(socket.id, playerId);
-    playerIdToSocket.set(playerId, socket.id);
+      const playerId = crypto.randomUUID();
+      socketToPlayerId.set(socket.id, playerId);
+      playerIdToSocket.set(playerId, socket.id);
 
-    const nickname = data?.nickname || `Jogador-${socket.id.slice(0, 5)}`;
-    const avatarColor = data?.avatarColor || '#4F46E5';
+      const nickname = data?.nickname || `Jogador-${socket.id.slice(0, 5)}`;
+      const avatarColor = data?.avatarColor || '#4F46E5';
 
-    const player = await upsertPlayer(playerId, {
-      nickname,
-      avatar_color: avatarColor,
-      status: 'online',
-      last_position: { x: 0, y: 0.5, z: 0 },
-      last_rotation: 0,
-    });
+      const player = await upsertPlayer(playerId, {
+        nickname,
+        avatar_color: avatarColor,
+        status: 'online',
+        last_position: { x: 0, y: 0.5, z: 0 },
+        last_rotation: 0,
+      });
 
-    if (player) {
+      if (!player) {
+        socketToPlayerId.delete(socket.id);
+        playerIdToSocket.delete(playerId);
+        return;
+      }
+
       playerSockets.set(socket.id, playerId);
 
       const roomId = await getDefaultRoom();
@@ -242,48 +282,62 @@ io.on('connection', (socket) => {
         socket.emit('room:joined', { roomId });
       }
 
-      const onlinePlayers = await getOnlinePlayers();
-      socket.emit('current-players', onlinePlayers
-        .filter((p) => playerIdToSocket.has(p.id))
-        .map((p) => ({
-          id: playerIdToSocket.get(p.id),
-          ...p,
-        }))
-      );
+      socket.emit('current-players', [{
+        id: socket.id,
+        nickname: player.nickname,
+        avatarColor: player.avatar_color,
+        x: player.last_position?.x || 0,
+        y: player.last_position?.y || 0.5,
+        z: player.last_position?.z || 0,
+        rotation: player.last_rotation || 0,
+        status: player.status,
+      }]);
       socket.broadcast.emit('player:joined', { ...player, id: socket.id });
+    } catch (err) {
+      console.error(`Erro em player:join (${socket.id}):`, err.message);
     }
   });
 
   socket.on('player-move', async (data) => {
-    if (!data || !currentCfg.features.multiplayer) return;
+    try {
+      if (!data || !configManager.getConfig().features.multiplayer) return;
 
-    const playerId = socketToPlayerId.get(socket.id);
-    if (!playerId) return;
+      const playerId = socketToPlayerId.get(socket.id);
+      if (!playerId) return;
 
-    const position = { x: data.x || 0, y: data.y || 0.5, z: data.z || 0 };
-    const rotation = data.rotation || 0;
-
-    await updatePlayerPosition(playerId, position, rotation);
+      await updatePlayerPosition(playerId, {
+        x: data.x || 0,
+        y: data.y || 0.5,
+        z: data.z || 0,
+      }, data.rotation || 0);
+    } catch (err) {
+      console.error(`Erro em player-move (${socket.id}):`, err.message);
+    }
   });
 
   socket.on('store:enter', async (data) => {
-    if (!currentCfg.features.iframePortals) {
-      socket.emit('store:closed');
-      return;
-    }
+    try {
+      const cfg = configManager.getConfig();
+      if (!cfg.features.iframePortals) {
+        socket.emit('store:closed');
+        return;
+      }
 
-    const storeId = data?.storeId;
-    if (!storeId) return;
+      const storeId = data?.storeId;
+      if (!storeId) return;
 
-    const { supabaseAdmin } = require('./src/lib/supabase');
-    const { data: store, error } = await supabaseAdmin
-      .from('stores')
-      .select('id, name, site_url, logo_url')
-      .eq('id', storeId)
-      .single();
+      const { supabaseAdmin } = require('./src/lib/supabase');
+      const { data: store, error } = await supabaseAdmin
+        .from('stores')
+        .select('id, name, site_url, logo_url, category')
+        .eq('id', storeId)
+        .single();
 
-    if (!error && store) {
-      socket.emit('store:open', store);
+      if (!error && store) {
+        socket.emit('store:open', store);
+      }
+    } catch (err) {
+      console.error(`Erro em store:enter (${socket.id}):`, err.message);
     }
   });
 
@@ -292,31 +346,39 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', async () => {
-    console.log(`Jogador desconectado: ${socket.id}`);
+    if (destroyed) return;
+    destroyed = true;
 
-    const playerId = socketToPlayerId.get(socket.id);
+    try {
+      console.log(`Jogador desconectado: ${socket.id}`);
 
-    if (playerId) {
-      await setPlayerOffline(playerId);
+      const playerId = socketToPlayerId.get(socket.id);
 
-      const { supabaseAdmin } = require('./src/lib/supabase');
-      const { data: roomPlayers } = await supabaseAdmin
-        .from('room_players')
-        .select('room_id')
-        .eq('player_id', playerId);
+      if (playerId) {
+        const { supabaseAdmin } = require('./src/lib/supabase');
 
-      if (roomPlayers) {
-        for (const rp of roomPlayers) {
-          await removePlayerFromRoom(rp.room_id, playerId);
+        await setPlayerOffline(playerId);
+
+        const { data: roomPlayers } = await supabaseAdmin
+          .from('room_players')
+          .select('room_id')
+          .eq('player_id', playerId);
+
+        if (roomPlayers) {
+          for (const rp of roomPlayers) {
+            await removePlayerFromRoom(rp.room_id, playerId);
+          }
         }
+
+        socketToPlayerId.delete(socket.id);
+        playerIdToSocket.delete(playerId);
       }
 
-      socketToPlayerId.delete(socket.id);
-      playerIdToSocket.delete(playerId);
+      playerSockets.delete(socket.id);
+      io.emit('player-disconnected', socket.id);
+    } catch (err) {
+      console.error(`Erro em disconnect (${socket.id}):`, err.message);
     }
-
-    playerSockets.delete(socket.id);
-    io.emit('player-disconnected', socket.id);
   });
 });
 
@@ -333,8 +395,18 @@ function startGameLoop() {
       if (!cfg.features.multiplayer) return;
 
       const onlinePlayers = await getOnlinePlayers();
+      const connectedSocketIds = io.sockets.sockets;
+      for (const [pid, sid] of playerIdToSocket) {
+        if (!connectedSocketIds.has(sid)) {
+          playerIdToSocket.delete(pid);
+          socketToPlayerId.delete(sid);
+        }
+      }
       const snapshot = onlinePlayers
-        .filter((p) => playerIdToSocket.has(p.id))
+        .filter((p) => {
+          const sid = playerIdToSocket.get(p.id);
+          return sid && connectedSocketIds.has(sid);
+        })
         .map((p) => {
           const socketId = playerIdToSocket.get(p.id);
           return {
@@ -358,9 +430,12 @@ function startGameLoop() {
 startGameLoop();
 
 // Watch for config changes to restart game loop if tick rate changes
+let lastTickRate = configManager.getConfig().network.tickRate;
 setInterval(() => {
-  const currentTickInterval = 1000 / configManager.getConfig().network.tickRate;
-  if (gameTickTimer && Math.abs(currentTickInterval - (1000 / cfg.network.tickRate)) > 1) {
+  const fresh = configManager.getConfig().network.tickRate;
+  if (gameTickTimer && fresh !== lastTickRate) {
+    lastTickRate = fresh;
+    console.log(`[Config] Tick rate alterado para ${fresh} tps - reiniciando game loop`);
     startGameLoop();
   }
 }, 3000);

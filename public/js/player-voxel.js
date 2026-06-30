@@ -1,12 +1,22 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+function createGeometry(type, params) {
+  switch (type) {
+    case 'sphere': return new THREE.SphereGeometry(...params);
+    case 'roundedBox': return new RoundedBoxGeometry(...params);
+    case 'cylinder': return new THREE.CylinderGeometry(...params);
+    default: return new THREE.BoxGeometry(...params);
+  }
+}
 
 const BODY_DEF = {
-  cabeca:   { size: [0.5, 0.5, 0.5],  offset: [0, 0.9, 0] },
-  tronco:   { size: [0.6, 0.65, 0.4], offset: [0, 0.2, 0] },
-  bracoEsq: { size: [0.22, 0.55, 0.22], offset: [-0.41, 0.35, 0] },
-  bracoDir: { size: [0.22, 0.55, 0.22], offset: [0.41, 0.35, 0] },
-  pernaEsq: { size: [0.28, 0.5, 0.28],  offset: [-0.15, -0.3, 0] },
-  pernaDir: { size: [0.28, 0.5, 0.28],  offset: [0.15, -0.3, 0] },
+  cabeca:   { type: 'sphere',     params: [0.24, 8, 8],                  offset: [0, 0.83, 0] },
+  tronco:   { type: 'roundedBox', params: [0.42, 0.65, 0.4, 3, 0.1],    offset: [0, 0.2, 0] },
+  bracoEsq: { type: 'cylinder',   params: [0.12, 0.1, 0.55, 6],         offset: [-0.28, 0.25, 0] },
+  bracoDir: { type: 'cylinder',   params: [0.12, 0.1, 0.55, 6],         offset: [0.28, 0.25, 0] },
+  pernaEsq: { type: 'cylinder',   params: [0.14, 0.1, 0.5, 6],          offset: [-0.15, -0.3, 0] },
+  pernaDir: { type: 'cylinder',   params: [0.14, 0.1, 0.5, 6],          offset: [0.15, -0.3, 0] },
 };
 
 export const PALETTES = [
@@ -29,11 +39,11 @@ export class PlayerVoxel {
 
     for (const [name, def] of Object.entries(BODY_DEF)) {
       const color = palette[name] || 0xCCCCCC;
-      const geo = new THREE.BoxGeometry(...def.size);
+      const geo = createGeometry(def.type, def.params);
       const mat = new THREE.MeshStandardMaterial({
         color,
-        roughness: 0.4,
-        metalness: 0.05,
+        roughness: 0.5,
+        metalness: 0.02,
       });
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.set(...def.offset);
