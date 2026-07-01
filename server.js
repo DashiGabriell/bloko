@@ -337,7 +337,7 @@ io.on('connection', (socket) => {
         nickname,
         avatar_color: avatarColor,
         status: 'online',
-        last_position: { x: 0, y: 0.5, z: 0 },
+        last_position: { x: 0, y: 0, z: 0 },
         last_rotation: 0,
       });
 
@@ -361,7 +361,7 @@ io.on('connection', (socket) => {
         nickname: player.nickname,
         avatarColor: player.avatar_color,
         x: player.last_position?.x || 0,
-        y: player.last_position?.y || 0.5,
+        y: player.last_position?.y ?? 0,
         z: player.last_position?.z || 0,
         rotation: player.last_rotation || 0,
         status: player.status,
@@ -381,7 +381,7 @@ io.on('connection', (socket) => {
 
       await updatePlayerPosition(playerId, {
         x: data.x || 0,
-        y: data.y || 0.5,
+        y: data.y ?? 0,
         z: data.z || 0,
       }, data.rotation || 0);
     } catch (err) {
@@ -489,7 +489,7 @@ function startGameLoop() {
             nickname: p.nickname,
             avatarColor: p.avatar_color,
             x: p.last_position?.x || 0,
-            y: p.last_position?.y || 0.5,
+            y: p.last_position?.y ?? 0,
             z: p.last_position?.z || 0,
             rotation: p.last_rotation || 0,
             status: p.status,

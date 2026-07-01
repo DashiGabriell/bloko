@@ -4,6 +4,7 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import nipplejs from 'nipplejs';
 import { PlayerVoxel, PALETTES } from './player-voxel.js';
 import { CameraController } from './camera.js';
+import { PlayerModel3D } from './player-model-3d.js';
 
 let TICK_RATE = 15;
 let SEND_INTERVAL = 1000 / TICK_RATE;
@@ -68,10 +69,8 @@ scene.add(fillLight);
 const hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x444422, 0.6);
 scene.add(hemiLight);
 
-const savedPaletteIndex = parseInt(localStorage.getItem('bloko_paletteIndex')) || 0;
-const paletteIndex = Math.min(Math.max(savedPaletteIndex, 0), PALETTES.length - 1);
-const localPlayer = new PlayerVoxel(PALETTES[paletteIndex]);
-localPlayer.position.set(0, VOXEL_CENTER_Y, -5.5);
+const localPlayer = new PlayerModel3D();
+localPlayer.position.set(0, 0, -5.5);
 scene.add(localPlayer.group);
 
 currentX = 0;
@@ -86,7 +85,7 @@ function createRemotePlayer(id) {
   const voxel = new PlayerVoxel(PALETTES[colorIdx]);
   voxel.position.set(0, VOXEL_CENTER_Y, 0);
   scene.add(voxel.group);
-  remotePlayers.set(id, { voxel, targetX: 0, targetZ: 0, currentX: 0, currentZ: 0, rotation: 0 });
+  remotePlayers.set(id, { voxel, targetX: 0, targetZ: 0, targetY: VOXEL_CENTER_Y, currentX: 0, currentZ: 0, rotation: 0 });
 }
 
 function removeRemotePlayer(id) {
@@ -196,8 +195,9 @@ socket.on('current-players', (players) => {
       rp.currentZ = p.z;
       rp.targetX = p.x;
       rp.targetZ = p.z;
+      rp.targetY = p.y ?? VOXEL_CENTER_Y;
       rp.rotation = p.rotation || 0;
-      rp.voxel.position.set(p.x, VOXEL_CENTER_Y, p.z);
+      rp.voxel.position.set(p.x, p.y ?? VOXEL_CENTER_Y, p.z);
     }
   }
   updateHUDCount();
@@ -215,6 +215,7 @@ socket.on('game-state', (players) => {
     if (rp) {
       rp.targetX = p.x;
       rp.targetZ = p.z;
+      rp.targetY = p.y ?? VOXEL_CENTER_Y;
       rp.rotation = p.rotation || 0;
     }
   }
@@ -288,7 +289,13 @@ function updateMovement(dt) {
     currentRotation = Math.atan2(dx, dz);
   }
 
-  localPlayer.setMoving(dx !== 0 || dz !== 0);
+  if (dx === 0 && dz === 0) {
+    localPlayer.changeState('idle');
+  } else if (keyState['shift']) {
+    localPlayer.changeState('run');
+  } else {
+    localPlayer.changeState('walk');
+  }
 
   currentX += (targetX - currentX) * LERP_FACTOR;
   currentZ += (targetZ - currentZ) * LERP_FACTOR;
@@ -361,10 +368,10 @@ function gameLoop(time) {
   for (const [, rp] of remotePlayers) {
     const dx = rp.targetX - rp.voxel.position.x;
     const dz = rp.targetZ - rp.voxel.position.z;
-    rp.voxel.setMoving(Math.abs(dx) > 0.001 || Math.abs(dz) > 0.001);
+    rp.voxel.changeState(Math.abs(dx) > 0.01 || Math.abs(dz) > 0.01 ? 'walk' : 'idle');
     rp.voxel.position.x += dx * LERP_FACTOR;
     rp.voxel.position.z += dz * LERP_FACTOR;
-    rp.voxel.position.y = VOXEL_CENTER_Y;
+    rp.voxel.position.y += (rp.targetY - rp.voxel.position.y) * LERP_FACTOR;
     rp.voxel.rotation.y = rp.rotation;
     rp.voxel.updateAnimation(dt);
   }
@@ -375,7 +382,7 @@ function gameLoop(time) {
     lastSendTime = time;
     socket.emit('player-move', {
       x: currentX,
-      y: VOXEL_CENTER_Y,
+      y: localPlayer.position.y,
       z: currentZ,
       rotation: currentRotation
     });

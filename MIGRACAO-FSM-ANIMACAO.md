@@ -409,3 +409,64 @@ AnimationClip (FBX)               →        STATE_CONFIG[].getTargets(t)
 ```
 
 **Factível?** Sim. A estrutura conceitual é idêntica — apenas o mecanismo de animação muda (FBX → procedural).
+
+---
+
+## Fase 2: Migração para FBX + AnimationMixer — Implementado
+
+Após a FSM procedural com voxels, o sistema foi atualizado para usar **modelo FBX com esqueleto** e `THREE.AnimationMixer`, seguindo exatamente o padrão EXPLICACAO.
+
+### Novo Arquivo
+
+`public/jogo/js/player-model-3d.js` — Classe `PlayerModel3D` que substitui o `PlayerVoxel` para o jogador local.
+
+```js
+export class PlayerModel3D {
+  constructor()                 // inicia carregamento do base.fbx + animações
+  changeState(newState)          // cross-fade via fadeOut/fadeIn (0.2s)
+  updateAnimation(dt)            // mixer.update(dt)
+}
+```
+
+### Fluxo de Carregamento
+
+```
+FBXLoader.loadAsync('/models/base/base.fbx')
+  → model.scale = 0.01
+  → new THREE.AnimationMixer(model)
+  → Promise.allSettled(idle.fbx, walk.fbx, run.fbx)
+    → mixer.clipAction(clip) para cada animação
+    → ações configuradas com LoopRepeat
+  → ready = true, idle.play()
+```
+
+### Diferenças para o Voxel
+
+| Característica | Voxel (`PlayerVoxel`) | FBX (`PlayerModel3D`) |
+|---|---|---|
+| Animação | `STATE_CONFIG.getTargets(t)` → lerp rotações | `AnimationMixer` → interpola ossos |
+| Transição | smoothstep manual (0.2s) | `fadeOut(0.2)` / `fadeIn(0.2)` nativo |
+| Modelo | Esferas + cilindros primitivos | `base.fbx` com esqueleto `mixamorig` |
+| Posição Y | `VOXEL_CENTER_Y = 0.55` | `0` (pés no chão) |
+
+### Arquivos Modificados
+
+| Arquivo | O que mudou |
+|---|---|
+| `public/jogo/js/player-model-3d.js` | **CRIADO** — classe FBX com AnimationMixer |
+| `public/jogo/js/main.js` | Local player usa `PlayerModel3D` (y=0); remote players continuam como `PlayerVoxel` com Y dinâmico |
+| `server.js` | `y: data.y ?? 0` em vez de `\|\| 0.5` para preservar y=0 |
+
+### Estrutura de Pastas para FBX
+
+```
+public/models/
+└── base/
+    ├── base.fbx              ← Personagem com esqueleto (SkinnedMesh)
+    └── animations/
+        ├── idle.fbx          ← Animação parado
+        ├── walk.fbx          ← Animação andando
+        └── run.fbx           ← Animação correndo
+```
+
+> **Requisito:** O `base.fbx` e todas as animações `.fbx` devem compartilhar o **mesmo sistema de ossos** (prefixo `mixamorig` — padrão Mixamo).

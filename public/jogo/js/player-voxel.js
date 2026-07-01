@@ -30,12 +30,52 @@ export const PALETTES = [
   { cabeca: 0xD9D94A, tronco: 0x8A8A2C, bracoEsq: 0x5F5F1E, bracoDir: 0x5F5F1E, pernaEsq: 0x5F5F1E, pernaDir: 0x5F5F1E },
 ];
 
+const STATE_CONFIG = {
+  idle: {
+    getTargets(t) {
+      return {
+        tronco:   { x: 0, y: 0, z: Math.sin(t * 1.5) * 0.015 },
+        bracoEsq: { x: Math.sin(t * 2) * 0.04, y: 0, z: 0 },
+        bracoDir: { x: -Math.sin(t * 2) * 0.04, y: 0, z: 0 },
+        pernaEsq: { x: 0, y: 0, z: 0 },
+        pernaDir: { x: 0, y: 0, z: 0 },
+      };
+    },
+  },
+  walk: {
+    getTargets(t) {
+      const s = Math.sin(t * 8) * 0.4;
+      return {
+        tronco:   { x: 0, y: 0, z: 0 },
+        bracoEsq: { x: s, y: 0, z: 0 },
+        bracoDir: { x: -s, y: 0, z: 0 },
+        pernaEsq: { x: -s, y: 0, z: 0 },
+        pernaDir: { x: s, y: 0, z: 0 },
+      };
+    },
+  },
+  run: {
+    getTargets(t) {
+      const s = Math.sin(t * 14) * 0.7;
+      return {
+        tronco:   { x: Math.sin(t * 14) * 0.05, y: 0, z: 0 },
+        bracoEsq: { x: s, y: 0, z: 0 },
+        bracoDir: { x: -s, y: 0, z: 0 },
+        pernaEsq: { x: -s * 1.1, y: 0, z: 0 },
+        pernaDir: { x: s * 1.1, y: 0, z: 0 },
+      };
+    },
+  },
+};
+
 export class PlayerVoxel {
   constructor(palette) {
     this.group = new THREE.Group();
     this.parts = {};
     this.animTime = 0;
-    this.isMoving = false;
+    this.currentState = 'idle';
+    this.transitionT = 1;
+    this.fromRotations = {};
 
     for (const [name, def] of Object.entries(BODY_DEF)) {
       const color = palette[name] || 0xCCCCCC;
@@ -70,24 +110,47 @@ export class PlayerVoxel {
     this.group.rotation.copy(v);
   }
 
-  setMoving(moving) {
-    this.isMoving = moving;
+  changeState(newState) {
+    if (newState === this.currentState && this.transitionT >= 1) return;
+
+    this.fromRotations = {};
+    for (const name of Object.keys(this.parts)) {
+      this.fromRotations[name] = {
+        x: this.parts[name].rotation.x,
+        y: this.parts[name].rotation.y,
+        z: this.parts[name].rotation.z,
+      };
+    }
+
+    this.currentState = newState;
+    this.transitionT = 0;
   }
 
   updateAnimation(dt) {
-    if (this.isMoving) {
-      this.animTime += dt * 10;
-      const swing = Math.sin(this.animTime) * 0.6;
-      this.parts.bracoEsq.rotation.x = swing;
-      this.parts.bracoDir.rotation.x = -swing;
-      this.parts.pernaEsq.rotation.x = -swing;
-      this.parts.pernaDir.rotation.x = swing;
-    } else if (this.animTime !== 0) {
-      this.animTime = 0;
-      this.parts.bracoEsq.rotation.x = 0;
-      this.parts.bracoDir.rotation.x = 0;
-      this.parts.pernaEsq.rotation.x = 0;
-      this.parts.pernaDir.rotation.x = 0;
+    this.animTime += dt;
+
+    const config = STATE_CONFIG[this.currentState];
+    if (!config) return;
+
+    const targets = config.getTargets(this.animTime);
+
+    if (this.transitionT < 1) {
+      this.transitionT = Math.min(this.transitionT + dt / 0.2, 1);
+      const t = this.transitionT;
+      const ease = t * t * (3 - 2 * t);
+
+      for (const [name, target] of Object.entries(targets)) {
+        const from = this.fromRotations[name] || { x: 0, y: 0, z: 0 };
+        this.parts[name].rotation.x = from.x + (target.x - from.x) * ease;
+        this.parts[name].rotation.y = from.y + (target.y - from.y) * ease;
+        this.parts[name].rotation.z = from.z + (target.z - from.z) * ease;
+      }
+    } else {
+      for (const [name, target] of Object.entries(targets)) {
+        this.parts[name].rotation.x = target.x;
+        this.parts[name].rotation.y = target.y;
+        this.parts[name].rotation.z = target.z;
+      }
     }
   }
 
