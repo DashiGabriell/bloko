@@ -21,6 +21,7 @@ process.on('uncaughtException', (err) => {
 const {
   upsertPlayer,
   updatePlayerPosition,
+  flushPlayerPosition,
   setPlayerOffline,
   getOnlinePlayers,
   getActiveStores,
@@ -46,7 +47,50 @@ const PORT = process.env.PORT || cfg.network.serverPort || 3000;
 const TICK_INTERVAL = 1000 / cfg.network.tickRate;
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+
+// ============================================================
+// AUTH CONFIG — expõe credenciais públicas para o cliente
+// ============================================================
+app.get('/api/auth/config', (req, res) => {
+  res.json({
+    supabaseUrl: process.env.SUPABASE_URL,
+    supabaseKey: process.env.SUPABASE_PUBLISHABLE_KEY,
+  });
+});
+
+// ============================================================
+// DB HEALTH CHECK
+// ============================================================
+app.get('/api/health/db', async (req, res) => {
+  try {
+    const { supabaseAdmin } = require('./src/lib/supabase');
+    const { data, error } = await supabaseAdmin.from('stores').select('id', { count: 'exact', head: true });
+    if (error) throw error;
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(503).json({ status: 'error', message: err.message, timestamp: new Date().toISOString() });
+  }
+});
+
+// ============================================================
+// PAGES
+// ============================================================
+// Landing page
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Game page
+app.use('/jogo', express.static(path.join(__dirname, 'public', 'jogo')));
+app.get('/jogo', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'jogo', 'index.html'));
+});
+
+// Settings page
+app.use('/configuracoes', express.static(path.join(__dirname, 'public', 'configuracoes')));
+app.get('/configuracoes', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'configuracoes', 'index.html'));
+});
 
 // ============================================================
 // ADMIN DASHBOARD
@@ -56,6 +100,9 @@ app.use('/admin', express.static(path.join(__dirname, 'public', 'admin')));
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
 });
+
+// General static for assets and other files
+app.use(express.static(path.join(__dirname, 'public')));
 
 // === CONFIG API ===
 app.get('/api/admin/config', (req, res) => {
@@ -200,6 +247,33 @@ app.get('/api/admin/build/status', (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ============================================================
+// AUTH MIDDLEWARE
+// ============================================================
+async function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token não fornecido' });
+  }
+  const token = authHeader.slice(7);
+  try {
+    const { supabaseAdmin } = require('./src/lib/supabase');
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    if (error || !user) throw error || new Error('Usuário não encontrado');
+    req.user = user;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Token inválido ou expirado' });
+  }
+}
+
+// ============================================================
+// ME — retorna dados do usuário autenticado
+// ============================================================
+app.get('/api/auth/me', authMiddleware, (req, res) => {
+  res.json({ user: req.user });
 });
 
 // ============================================================
@@ -357,6 +431,7 @@ io.on('connection', (socket) => {
       if (playerId) {
         const { supabaseAdmin } = require('./src/lib/supabase');
 
+        await flushPlayerPosition(playerId);
         await setPlayerOffline(playerId);
 
         const { data: roomPlayers } = await supabaseAdmin

@@ -66,7 +66,9 @@ scene.add(fillLight);
 const hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x444422, 0.6);
 scene.add(hemiLight);
 
-const localPlayer = new PlayerVoxel(PALETTES[Math.floor(Math.random() * PALETTES.length)]);
+const savedPaletteIndex = parseInt(localStorage.getItem('bloko_paletteIndex')) || 0;
+const paletteIndex = Math.min(Math.max(savedPaletteIndex, 0), PALETTES.length - 1);
+const localPlayer = new PlayerVoxel(PALETTES[paletteIndex]);
 localPlayer.position.set(0, VOXEL_CENTER_Y, -5.5);
 scene.add(localPlayer.group);
 
@@ -116,9 +118,6 @@ function isTouchCapable() {
 
 if (isTouchCapable()) {
   isTouchDevice = true;
-  const controlsInfo = document.getElementById('controls-info');
-  if (controlsInfo) controlsInfo.textContent = 'Joystick para mover';
-
   const zone = document.getElementById('joystick-zone');
   zone.style.display = 'block';
 
@@ -146,11 +145,9 @@ if (isTouchCapable()) {
 const socket = io();
 
 socket.on('connect', () => {
-  console.log('Conectado:', socket.id);
-  socket.emit('player:join', {
-    nickname: `Jogador-${socket.id.slice(0, 5)}`,
-    avatarColor: '#00aaff'
-  });
+  const nickname = localStorage.getItem('bloko_nickname') || `Jogador-${socket.id.slice(0, 5)}`;
+  const avatarColor = localStorage.getItem('bloko_avatarColor') || '#4A90D9';
+  socket.emit('player:join', { nickname, avatarColor });
 });
 
 socket.on('server:config', (cfg) => {

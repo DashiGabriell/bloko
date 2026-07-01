@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configurações - BLOKO</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="configuracoes.css">
+</head>
+<body>
+  <div id="app">
+    <div class="card">
+      <div class="card-header">
+        <h1>Configurações</h1>
+        <p class="subtitle">Personalize seu perfil no BLOKO</p>
+      </div>
+
+      <form id="settingsForm">
+        <div class="form-group">
+          <label for="nickname">Apelido (Nickname)</label>
+          <input type="text" id="nickname" name="nickname" maxlength="20" placeholder="Seu apelido" autocomplete="off">
+        </div>
+
+        <div class="form-group">
+          <label>Cor do Avatar</label>
+          <p class="field-hint">Escolha a cor principal do seu avatar</p>
+          <div class="color-grid" id="colorGrid">
+            <button class="color-swatch" data-color="#4A90D9" data-index="0" style="background:#4A90D9" title="Azul"></button>
+            <button class="color-swatch" data-color="#D94A4A" data-index="1" style="background:#D94A4A" title="Vermelho"></button>
+            <button class="color-swatch" data-color="#4AD94A" data-index="2" style="background:#4AD94A" title="Verde"></button>
+            <button class="color-swatch" data-color="#D9A64A" data-index="3" style="background:#D9A64A" title="Laranja"></button>
+            <button class="color-swatch" data-color="#9B4AD9" data-index="4" style="background:#9B4AD9" title="Roxo"></button>
+            <button class="color-swatch" data-color="#4AD9D9" data-index="5" style="background:#4AD9D9" title="Ciano"></button>
+            <button class="color-swatch" data-color="#D94AD9" data-index="6" style="background:#D94AD9" title="Rosa"></button>
+            <button class="color-swatch" data-color="#D9D94A" data-index="7" style="background:#D9D94A" title="Amarelo"></button>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Salvar</button>
+          <a href="/" class="btn btn-outline">Voltar</a>
+        </div>
+      </form>
+
+      <div id="toast" class="toast hidden"></div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY_NICK = 'bloko_nickname';
+    const STORAGE_KEY_COLOR = 'bloko_avatarColor';
+    const STORAGE_KEY_PALETTE = 'bloko_paletteIndex';
+
+    const nicknameInput = document.getElementById('nickname');
+    const colorSwatches = document.querySelectorAll('.color-swatch');
+    const form = document.getElementById('settingsForm');
+    const toast = document.getElementById('toast');
+
+    let selectedSwatch = null;
+    let toastTimer = null;
+
+    function showToast(message, type) {
+      toast.textContent = message;
+      toast.className = 'toast visible';
+      if (type) toast.classList.add(type);
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.remove('visible');
+      }, 2500);
+    }
+
+    function loadSettings() {
+      const nick = localStorage.getItem(STORAGE_KEY_NICK) || '';
+      nicknameInput.value = nick;
+
+      const savedIndex = localStorage.getItem(STORAGE_KEY_PALETTE);
+      if (savedIndex !== null) {
+        const swatch = document.querySelector(`.color-swatch[data-index="${savedIndex}"]`);
+        if (swatch) {
+          swatch.classList.add('selected');
+          selectedSwatch = swatch;
+        }
+      } else {
+        colorSwatches[0].classList.add('selected');
+        selectedSwatch = colorSwatches[0];
+      }
+    }
+
+    colorSwatches.forEach(sw => {
+      sw.addEventListener('click', () => {
+        colorSwatches.forEach(s => s.classList.remove('selected'));
+        sw.classList.add('selected');
+        selectedSwatch = sw;
+      });
+    });
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      const nickname = nicknameInput.value.trim() || `Jogador-${Math.random().toString(36).slice(2, 7)}`;
+      const paletteIndex = selectedSwatch ? selectedSwatch.dataset.index : '0';
+      const avatarColor = selectedSwatch ? selectedSwatch.dataset.color : '#4A90D9';
+
+      localStorage.setItem(STORAGE_KEY_NICK, nickname);
+      localStorage.setItem(STORAGE_KEY_COLOR, avatarColor);
+      localStorage.setItem(STORAGE_KEY_PALETTE, paletteIndex);
+
+      showToast('Configurações salvas com sucesso!', 'success');
+    });
+
+    loadSettings();
+  </script>
+</body>
+</html>

@@ -3,30 +3,201 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BLOKKO</title>
-  <link rel="stylesheet" href="style.css">
+  <title>BLOKO</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="landing.css">
 </head>
 <body>
-  <div id="hud">
-    <div id="player-count">Jogadores: <span id="count">1</span></div>
-    <div id="controls-info">WASD para mover</div>
+  <div id="particles"></div>
+  <div id="landing">
+    <div class="hero">
+      <img src="/logo.png" alt="BLOKO" class="logo-img">
+      <h1 class="logo">BLOKO</h1>
+      <p class="subtitle">Bairro Virtual Comercial 3D</p>
+      <p class="tagline">Explore, conecte-se e descubra comércios locais em um mundo virtual.</p>
+    </div>
+    <nav class="menu">
+      <a href="/jogo" class="btn btn-primary hidden" id="btnJogar">Entrar no Jogo</a>
+
+      <button class="btn btn-google" id="btnGoogle">
+        <svg width="20" height="20" viewBox="0 0 48 48" fill="none">
+          <path d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" fill="#FFC107"/>
+          <path d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z" fill="#FF3D00"/>
+          <path d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0124 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" fill="#4CAF50"/>
+          <path d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 01-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z" fill="#1976D2"/>
+        </svg>
+        Entrar com Google
+      </button>
+
+      <div class="divider"><span>ou</span></div>
+
+      <div class="email-form" id="emailForm">
+        <input type="email" class="input" id="emailInput" placeholder="E-mail" autocomplete="email">
+        <input type="password" class="input" id="passwordInput" placeholder="Senha" autocomplete="current-password">
+        <div class="email-actions">
+          <button class="btn btn-primary btn-sm" id="btnLogin">Entrar</button>
+          <button class="btn btn-outline btn-sm" id="btnSignup">Criar Conta</button>
+        </div>
+        <p class="form-msg hidden" id="formMsg"></p>
+      </div>
+
+      <a href="/configuracoes" class="btn btn-secondary">Configurações</a>
+      <button class="btn btn-outline" id="btnSobre">Sobre</button>
+    </nav>
   </div>
-  <div id="joystick-zone"></div>
-  <div id="loading-screen">
-    <div class="loader"></div>
-    <p>Carregando BLOKKO...</p>
+
+  <div id="sobre-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <button class="modal-close" id="closeSobre">&times;</button>
+      <h2>Sobre o BLOKO</h2>
+      <p>BLOKO é um bairro virtual comercial 3D onde você pode explorar lojas, interagir com outros visitantes e descobrir comércios locais em um ambiente imersivo.</p>
+      <p>Construído com Three.js, Node.js e Supabase.</p>
+    </div>
   </div>
 
   <script type="importmap">
   {
     "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/",
-      "nipplejs": "https://cdn.jsdelivr.net/npm/nipplejs@0.10.2/+esm"
+      "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm"
     }
   }
   </script>
-  <script src="/socket.io/socket.io.js"></script>
-  <script type="module" src="js/main.js"></script>
+  <script type="module">
+    import { createClient } from '@supabase/supabase-js';
+
+    let supabase = null;
+
+    async function initAuth() {
+      const res = await fetch('/api/auth/config');
+      const config = await res.json();
+      if (!config.supabaseUrl || !config.supabaseKey) return;
+      supabase = createClient(config.supabaseUrl, config.supabaseKey);
+    }
+
+    async function checkSession() {
+      if (!supabase) return;
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const btnJogar = document.getElementById('btnJogar');
+      const btnGoogle = document.getElementById('btnGoogle');
+
+      if (session) {
+        btnGoogle.classList.add('hidden');
+        btnJogar.classList.remove('hidden');
+      }
+    }
+
+    document.getElementById('btnGoogle').addEventListener('click', async () => {
+      if (!supabase) {
+        const res = await fetch('/api/auth/config');
+        const config = await res.json();
+        if (!config.supabaseUrl || !config.supabaseKey) {
+          alert('Erro: configuração de autenticação não disponível');
+          return;
+        }
+        supabase = createClient(config.supabaseUrl, config.supabaseKey);
+      }
+
+      const redirectTo = window.location.origin + '/auth/callback.html';
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo },
+      });
+      if (error) alert('Erro ao autenticar: ' + error.message);
+    });
+
+    document.getElementById('btnSobre').addEventListener('click', () => {
+      document.getElementById('sobre-modal').classList.remove('hidden');
+    });
+    document.getElementById('closeSobre').addEventListener('click', () => {
+      document.getElementById('sobre-modal').classList.add('hidden');
+    });
+    document.querySelector('.modal-backdrop').addEventListener('click', () => {
+      document.getElementById('sobre-modal').classList.add('hidden');
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') document.getElementById('sobre-modal').classList.add('hidden');
+    });
+
+    initAuth().then(checkSession);
+    async function emailSignIn() {
+      const email = document.getElementById('emailInput').value.trim();
+      const password = document.getElementById('passwordInput').value;
+      const msg = document.getElementById('formMsg');
+
+      if (!email || !password) {
+        msg.textContent = 'Preencha e-mail e senha.';
+        msg.className = 'form-msg error';
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        msg.textContent = error.message;
+        msg.className = 'form-msg error';
+        return;
+      }
+
+      window.location.href = '/jogo';
+    }
+
+    async function emailSignUp() {
+      const email = document.getElementById('emailInput').value.trim();
+      const password = document.getElementById('passwordInput').value;
+      const msg = document.getElementById('formMsg');
+
+      if (!email || !password) {
+        msg.textContent = 'Preencha e-mail e senha.';
+        msg.className = 'form-msg error';
+        return;
+      }
+      if (password.length < 6) {
+        msg.textContent = 'A senha deve ter pelo menos 6 caracteres.';
+        msg.className = 'form-msg error';
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) {
+        msg.textContent = error.message;
+        msg.className = 'form-msg error';
+        return;
+      }
+
+      if (data?.user?.identities?.length === 0) {
+        msg.textContent = 'Este e-mail já possui cadastro. Faça login.';
+        msg.className = 'form-msg error';
+      } else {
+        msg.textContent = 'Conta criada! Verifique seu e-mail para confirmar.';
+        msg.className = 'form-msg success';
+      }
+    }
+
+    document.getElementById('btnLogin').addEventListener('click', emailSignIn);
+    document.getElementById('btnSignup').addEventListener('click', emailSignUp);
+
+    document.getElementById('emailInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') emailSignIn();
+    });
+    document.getElementById('passwordInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') emailSignIn();
+    });
+
+    document.getElementById('btnSobre').addEventListener('click', () => {
+      document.getElementById('sobre-modal').classList.remove('hidden');
+    });
+    document.getElementById('closeSobre').addEventListener('click', () => {
+      document.getElementById('sobre-modal').classList.add('hidden');
+    });
+    document.querySelector('.modal-backdrop').addEventListener('click', () => {
+      document.getElementById('sobre-modal').classList.add('hidden');
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') document.getElementById('sobre-modal').classList.add('hidden');
+    });
+
+    initAuth().then(checkSession);
+  </script>
 </body>
 </html>

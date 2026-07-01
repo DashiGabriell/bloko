@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BLOKKO</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="hud">
+    <div id="hud-left">
+      <div id="player-count">👥 <span id="count">1</span></div>
+    </div>
+    <div id="hud-right">
+      <div id="user-card">
+        <button id="user-avatar" aria-label="Abrir perfil"></button>
+        <span id="user-name">Jogador</span>
+      </div>
+    </div>
+  </div>
+  <div id="profile-modal" class="modal hidden">
+    <div class="modal-backdrop" id="modal-backdrop"></div>
+    <div class="modal-content">
+      <button class="modal-close" id="modal-close">&times;</button>
+      <h2>Perfil</h2>
+      <form id="profile-form">
+        <div class="form-group">
+          <label for="nickname">Apelido</label>
+          <input type="text" id="nickname" name="nickname" maxlength="20" placeholder="Seu apelido" autocomplete="off">
+        </div>
+
+        <div class="form-group">
+          <label>Cor do Avatar</label>
+          <div class="color-grid" id="modal-color-grid">
+            <button type="button" class="color-swatch" data-color="#4A90D9" data-index="0" style="background:#4A90D9" title="Azul"></button>
+            <button type="button" class="color-swatch" data-color="#D94A4A" data-index="1" style="background:#D94A4A" title="Vermelho"></button>
+            <button type="button" class="color-swatch" data-color="#4AD94A" data-index="2" style="background:#4AD94A" title="Verde"></button>
+            <button type="button" class="color-swatch" data-color="#D9A64A" data-index="3" style="background:#D9A64A" title="Laranja"></button>
+            <button type="button" class="color-swatch" data-color="#9B4AD9" data-index="4" style="background:#9B4AD9" title="Roxo"></button>
+            <button type="button" class="color-swatch" data-color="#4AD9D9" data-index="5" style="background:#4AD9D9" title="Ciano"></button>
+            <button type="button" class="color-swatch" data-color="#D94AD9" data-index="6" style="background:#D94AD9" title="Rosa"></button>
+            <button type="button" class="color-swatch" data-color="#D9D94A" data-index="7" style="background:#D9D94A" title="Amarelo"></button>
+          </div>
+        </div>
+
+        <div class="form-group" id="email-group" style="display:none">
+          <label for="profile-email">Email</label>
+          <input type="email" id="profile-email" readonly>
+        </div>
+
+        <div class="form-group">
+          <label>Foto</label>
+          <p class="field-hint"> Foto será configurada em breve</p>
+          <div class="photo-placeholder">
+            <div class="photo-circle" id="modal-photo"></div>
+            <button type="button" class="btn btn-outline btn-sm" disabled>Alterar Foto</button>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const nick = localStorage.getItem('bloko_nickname') || 'Jogador';
+    const savedColor = localStorage.getItem('bloko_avatarColor') || '#4A90D9';
+    const savedIndex = localStorage.getItem('bloko_paletteIndex') || '0';
+
+    const userNameEl = document.getElementById('user-name');
+    const avatarBtn = document.getElementById('user-avatar');
+    const modal = document.getElementById('profile-modal');
+    const backdrop = document.getElementById('modal-backdrop');
+    const closeBtn = document.getElementById('modal-close');
+    const form = document.getElementById('profile-form');
+    const nickInput = document.getElementById('nickname');
+    const swatches = document.querySelectorAll('#modal-color-grid .color-swatch');
+    const photoCircle = document.getElementById('modal-photo');
+    const emailInput = document.getElementById('profile-email');
+    const emailGroup = document.getElementById('email-group');
+
+    let selectedSwatch = null;
+
+    function updateAvatarUI(name, color) {
+      userNameEl.textContent = name;
+      avatarBtn.textContent = name.charAt(0).toUpperCase();
+      avatarBtn.style.background = color || 'linear-gradient(135deg, #667eea, #764ba2)';
+      photoCircle.textContent = name.charAt(0).toUpperCase();
+      photoCircle.style.background = color || 'linear-gradient(135deg, #667eea, #764ba2)';
+    }
+
+    function loadModalSettings() {
+      const name = localStorage.getItem('bloko_nickname') || 'Jogador';
+      const index = localStorage.getItem('bloko_paletteIndex') || '0';
+      const color = localStorage.getItem('bloko_avatarColor') || '#4A90D9';
+
+      nickInput.value = name;
+
+      swatches.forEach(s => s.classList.remove('selected'));
+      const target = document.querySelector(`#modal-color-grid .color-swatch[data-index="${index}"]`);
+      if (target) {
+        target.classList.add('selected');
+        selectedSwatch = target;
+      } else {
+        swatches[0].classList.add('selected');
+        selectedSwatch = swatches[0];
+      }
+
+      updateAvatarUI(name, color);
+    }
+
+    swatches.forEach(sw => {
+      sw.addEventListener('click', () => {
+        swatches.forEach(s => s.classList.remove('selected'));
+        sw.classList.add('selected');
+        selectedSwatch = sw;
+      });
+    });
+
+    avatarBtn.addEventListener('click', () => {
+      loadModalSettings();
+      modal.classList.remove('hidden');
+    });
+
+    function closeModal() {
+      modal.classList.add('hidden');
+    }
+
+    backdrop.addEventListener('click', closeModal);
+    closeBtn.addEventListener('click', closeModal);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+        closeModal();
+      }
+    });
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      const name = nickInput.value.trim() || `Jogador-${Math.random().toString(36).slice(2, 7)}`;
+      const paletteIndex = selectedSwatch ? selectedSwatch.dataset.index : '0';
+      const avatarColor = selectedSwatch ? selectedSwatch.dataset.color : '#4A90D9';
+
+      localStorage.setItem('bloko_nickname', name);
+      localStorage.setItem('bloko_avatarColor', avatarColor);
+      localStorage.setItem('bloko_paletteIndex', paletteIndex);
+
+      updateAvatarUI(name, avatarColor);
+      closeModal();
+    });
+
+    loadModalSettings();
+  </script>
+
+  <div id="joystick-zone"></div>
+  <div id="loading-screen">
+    <div class="loader"></div>
+    <p>Carregando BLOKKO...</p>
+  </div>
+
+  <script type="module">
+    const res = await fetch('/api/auth/config');
+    const config = await res.json();
+    if (config.supabaseUrl && config.supabaseKey) {
+      const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+      const supabase = createClient(config.supabaseUrl, config.supabaseKey);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        window.location.href = '/';
+      }
+    }
+  </script>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/",
+      "nipplejs": "https://cdn.jsdelivr.net/npm/nipplejs@0.10.2/+esm"
+    }
+  }
+  </script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
