@@ -11,7 +11,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
     "@gltf-transform/cli": "^4.4.0",
     "@gltf-transform/core": "^4.4.0",

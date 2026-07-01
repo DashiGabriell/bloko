@@ -1,5 +1,5 @@
-const { createClient } = require('@supabase/supabase-js');
-const https = require('https');
+import { createClient } from '@supabase/supabase-js';
+import https from 'https';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -204,7 +204,7 @@ async function resetAllPlayersOffline() {
   }
 }
 
-module.exports = {
+export {
   supabaseAdmin,
   supabaseAnon,
   getPlayerById,

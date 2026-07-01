@@ -1,7 +1,9 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
-const CONFIG_PATH = path.join(__dirname, 'config.json');
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const CONFIG_PATH = join(__dirname, 'config.json');
 
 const defaults = {
   features: {
@@ -160,10 +162,4 @@ function resetConfig() {
 
 loadConfig();
 
-module.exports = {
-  getConfig,
-  getDefaults,
-  saveConfig,
-  resetConfig,
-  loadConfig,
-};
+export default { getConfig, getDefaults, saveConfig, resetConfig, loadConfig };

@@ -1,24 +1,16 @@
-require('dotenv').config();
-const crypto = require('crypto');
+import 'dotenv/config';
+import crypto from 'crypto';
+import express from 'express';
+import http from 'http';
+import { Server } from 'socket.io';
+import path from 'path';
+import fs from 'fs';
+import { spawn } from 'child_process';
+import { fileURLToPath } from 'url';
 
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const path = require('path');
-const { spawn } = require('child_process');
-
-const configManager = require('./config/project-config');
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason?.message || reason);
-});
-
-process.on('uncaughtException', (err) => {
-  console.error('🚨 Uncaught Exception:', err.message);
-  console.error(err.stack);
-});
-
-const {
+import configManager from './config/project-config.js';
+import {
+  supabaseAdmin,
   upsertPlayer,
   updatePlayerPosition,
   flushPlayerPosition,
@@ -29,7 +21,18 @@ const {
   addPlayerToRoom,
   removePlayerFromRoom,
   resetAllPlayersOffline,
-} = require('./src/lib/supabase');
+} from './src/lib/supabase.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason?.message || reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err.message);
+  console.error(err.stack);
+});
 
 const app = express();
 const server = http.createServer(app);
@@ -44,12 +47,11 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || cfg.network.serverPort || 3000;
-const TICK_INTERVAL = 1000 / cfg.network.tickRate;
 
 app.use(express.json());
 
 // ============================================================
-// AUTH CONFIG — expõe credenciais públicas para o cliente
+// AUTH CONFIG
 // ============================================================
 app.get('/api/auth/config', (req, res) => {
   res.json({
@@ -63,7 +65,6 @@ app.get('/api/auth/config', (req, res) => {
 // ============================================================
 app.get('/api/health/db', async (req, res) => {
   try {
-    const { supabaseAdmin } = require('./src/lib/supabase');
     const { data, error } = await supabaseAdmin.from('stores').select('id', { count: 'exact', head: true });
     if (error) throw error;
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -75,18 +76,15 @@ app.get('/api/health/db', async (req, res) => {
 // ============================================================
 // PAGES
 // ============================================================
-// Landing page
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Game page
 app.use('/jogo', express.static(path.join(__dirname, 'public', 'jogo')));
 app.get('/jogo', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'jogo', 'index.html'));
 });
 
-// Settings page
 app.use('/configuracoes', express.static(path.join(__dirname, 'public', 'configuracoes')));
 app.get('/configuracoes', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'configuracoes', 'index.html'));
@@ -101,7 +99,6 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
 });
 
-// General static for assets and other files
 app.use(express.static(path.join(__dirname, 'public')));
 
 // === CONFIG API ===
@@ -134,7 +131,6 @@ app.post('/api/admin/config/reset', (req, res) => {
 // === STATS API ===
 app.get('/api/admin/stats', async (req, res) => {
   try {
-    const { supabaseAdmin } = require('./src/lib/supabase');
     const { count: players } = await supabaseAdmin.from('players').select('*', { count: 'exact', head: true }).eq('status', 'online');
     const { count: rooms } = await supabaseAdmin.from('rooms').select('*', { count: 'exact', head: true });
     const { count: stores } = await supabaseAdmin.from('stores').select('*', { count: 'exact', head: true });
@@ -147,7 +143,6 @@ app.get('/api/admin/stats', async (req, res) => {
 // === ROOMS API ===
 app.get('/api/admin/rooms', async (req, res) => {
   try {
-    const { supabaseAdmin } = require('./src/lib/supabase');
     const { data } = await supabaseAdmin.from('rooms').select('*').order('created_at', { ascending: false });
     res.json(data || []);
   } catch (err) {
@@ -158,7 +153,6 @@ app.get('/api/admin/rooms', async (req, res) => {
 // === STORES API ===
 app.get('/api/admin/stores', async (req, res) => {
   try {
-    const { supabaseAdmin } = require('./src/lib/supabase');
     const { data } = await supabaseAdmin.from('stores').select('*').order('name');
     res.json(data || []);
   } catch (err) {
@@ -168,7 +162,6 @@ app.get('/api/admin/stores', async (req, res) => {
 
 app.post('/api/admin/stores', async (req, res) => {
   try {
-    const { supabaseAdmin } = require('./src/lib/supabase');
     const { data, error } = await supabaseAdmin.from('stores').insert(req.body).select().single();
     if (error) throw error;
     res.json(data);
@@ -179,7 +172,6 @@ app.post('/api/admin/stores', async (req, res) => {
 
 app.put('/api/admin/stores/:id', async (req, res) => {
   try {
-    const { supabaseAdmin } = require('./src/lib/supabase');
     const { data, error } = await supabaseAdmin.from('stores').update(req.body).eq('id', req.params.id).select().single();
     if (error) throw error;
     res.json(data);
@@ -190,7 +182,6 @@ app.put('/api/admin/stores/:id', async (req, res) => {
 
 app.delete('/api/admin/stores/:id', async (req, res) => {
   try {
-    const { supabaseAdmin } = require('./src/lib/supabase');
     const { error } = await supabaseAdmin.from('stores').delete().eq('id', req.params.id);
     if (error) throw error;
     res.json({ success: true });
@@ -231,7 +222,6 @@ app.post('/api/admin/build', (req, res) => {
 });
 
 app.get('/api/admin/build/status', (req, res) => {
-  const fs = require('fs');
   const scenePath = path.join(__dirname, 'public', 'assets', 'scene.glb');
   try {
     if (fs.existsSync(scenePath)) {
@@ -259,7 +249,6 @@ async function authMiddleware(req, res, next) {
   }
   const token = authHeader.slice(7);
   try {
-    const { supabaseAdmin } = require('./src/lib/supabase');
     const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
     if (error || !user) throw error || new Error('Usuário não encontrado');
     req.user = user;
@@ -270,7 +259,7 @@ async function authMiddleware(req, res, next) {
 }
 
 // ============================================================
-// ME — retorna dados do usuário autenticado
+// ME
 // ============================================================
 app.get('/api/auth/me', authMiddleware, (req, res) => {
   res.json({ user: req.user });
@@ -400,7 +389,6 @@ io.on('connection', (socket) => {
       const storeId = data?.storeId;
       if (!storeId) return;
 
-      const { supabaseAdmin } = require('./src/lib/supabase');
       const { data: store, error } = await supabaseAdmin
         .from('stores')
         .select('id, name, site_url, logo_url, category')
@@ -429,8 +417,6 @@ io.on('connection', (socket) => {
       const playerId = socketToPlayerId.get(socket.id);
 
       if (playerId) {
-        const { supabaseAdmin } = require('./src/lib/supabase');
-
         await flushPlayerPosition(playerId);
         await setPlayerOffline(playerId);
 
@@ -504,7 +490,6 @@ function startGameLoop() {
 
 startGameLoop();
 
-// Watch for config changes to restart game loop if tick rate changes
 let lastTickRate = configManager.getConfig().network.tickRate;
 setInterval(() => {
   const fresh = configManager.getConfig().network.tickRate;
@@ -517,10 +502,10 @@ setInterval(() => {
 
 server.listen(PORT, async () => {
   const finalCfg = configManager.getConfig();
-  console.log(`🏙️  BLOKO - Servidor rodando em http://localhost:${PORT}`);
-  console.log(`📡 Tick rate: ${finalCfg.network.tickRate} tps`);
-  console.log(`🗄️  Supabase: ${process.env.SUPABASE_URL ? 'conectado' : 'sem .env'}`);
-  console.log(`🛠️  Admin: http://localhost:${PORT}/admin`);
+  console.log(`BLOKO - Servidor rodando em http://localhost:${PORT}`);
+  console.log(`Tick rate: ${finalCfg.network.tickRate} tps`);
+  console.log(`Supabase: ${process.env.SUPABASE_URL ? 'conectado' : 'sem .env'}`);
+  console.log(`Admin: http://localhost:${PORT}/admin`);
 
   await resetAllPlayersOffline();
 });
