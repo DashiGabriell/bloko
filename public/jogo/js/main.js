@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import nipplejs from 'nipplejs';
 import { PlayerVoxel, PALETTES } from './player-voxel.js';
+import { CameraController } from './camera.js';
 
 let TICK_RATE = 15;
 let SEND_INTERVAL = 1000 / TICK_RATE;
@@ -33,6 +34,7 @@ scene.fog = new THREE.Fog(0x87CEEB, 25, 45);
 const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 80);
 camera.position.set(8, 14, 12);
 camera.lookAt(0, 0, 0);
+const camCtrl = new CameraController(camera);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -131,9 +133,8 @@ if (isTouchCapable()) {
   });
 
   joystick.on('move', (evt, data) => {
-    const force = Math.min(data.force, 1);
-    touchInput.x = Math.sin(data.angle.radian) * force;
-    touchInput.y = -Math.cos(data.angle.radian) * force;
+    touchInput.x = data.vector.x;
+    touchInput.y = -data.vector.y;
   });
 
   joystick.on('end', () => {
@@ -167,6 +168,10 @@ socket.on('server:config', (cfg) => {
       scene.fog = null;
     }
     renderer.toneMappingExposure = cfg.environment.toneMappingExposure ?? 1.2;
+    camCtrl.setDefaultDistance(cfg.environment.cameraDistance ?? camCtrl.defaultDistance);
+    camCtrl.setDefaultHeight(cfg.environment.cameraHeight ?? camCtrl.defaultHeight);
+    camera.fov = cfg.environment.cameraFov ?? camera.fov;
+    camera.updateProjectionMatrix();
   }
   if (cfg.network) {
     TICK_RATE = cfg.network.tickRate ?? TICK_RATE;
@@ -292,13 +297,7 @@ function updateMovement(dt) {
   localPlayer.position.z = currentZ;
   localPlayer.rotation.y = currentRotation;
 
-  const camAngle = Math.PI * 0.25;
-  const camDist = 14;
-  const camHeight = 12;
-  const cx = currentX + Math.sin(camAngle) * camDist * 0.15;
-  const cz = currentZ + Math.cos(camAngle) * camDist;
-  camera.position.lerp(new THREE.Vector3(cx, camHeight, cz), 0.05);
-  camera.lookAt(currentX, 0, currentZ);
+  camCtrl.update(currentX, currentZ);
 }
 
 function updateHUDCount() {

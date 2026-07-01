@@ -13,9 +13,12 @@
       <div id="player-count">👥 <span id="count">1</span></div>
     </div>
     <div id="hud-right">
-      <div id="user-card">
-        <button id="user-avatar" aria-label="Abrir perfil"></button>
-        <span id="user-name">Jogador</span>
+      <div class="hud-right-group">
+        <div id="user-card">
+          <button id="user-avatar" aria-label="Abrir perfil"></button>
+          <span id="user-name">Jogador</span>
+        </div>
+        <button id="camera-toggle" class="glass-btn" aria-label="Alternar câmera">📹</button>
       </div>
     </div>
   </div>
@@ -154,6 +157,10 @@
     });
 
     loadModalSettings();
+
+    document.getElementById('camera-toggle').addEventListener('click', () => {
+      document.dispatchEvent(new CustomEvent('camera:toggle'));
+    });
   </script>
 
   <div id="joystick-zone"></div>

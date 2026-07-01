@@ -36,7 +36,13 @@ canvas {
 #hud-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+}
+
+.hud-right-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
 }
 
 #user-card {
@@ -107,6 +113,34 @@ canvas {
   line-height: 1;
 }
 
+.glass-btn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  font-size: 20px;
+  color: #fff;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform 0.15s, background 0.15s;
+  flex-shrink: 0;
+  line-height: 1;
+  user-select: none;
+}
+.glass-btn:hover {
+  transform: scale(1.08);
+  background: rgba(255, 255, 255, 0.14);
+}
+.glass-btn:active {
+  transform: scale(0.95);
+}
+
 #loading-screen {
   position: fixed;
   inset: 0;
@@ -145,6 +179,26 @@ canvas {
   z-index: 20;
   touch-action: none;
   display: none;
+}
+
+#joystick-zone .nipple {
+  position: absolute !important;
+}
+
+#joystick-zone .back {
+  background: rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.06), inset 0 0 20px rgba(255, 255, 255, 0.03);
+}
+
+#joystick-zone .front {
+  background: rgba(255, 255, 255, 0.15) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.08);
 }
 
 @media (hover: none) and (pointer: coarse) {
@@ -190,11 +244,11 @@ canvas {
 
 .modal-content {
   position: relative;
-  background: rgba(30, 30, 50, 0.75);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 20px;
+  border-radius: 14px;
   padding: 32px;
   width: 90%;
   max-width: 420px;
@@ -245,20 +299,22 @@ canvas {
 .form-group input[type="email"] {
   width: 100%;
   padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
   color: #fff;
   font-size: 15px;
   font-family: inherit;
   outline: none;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   transition: border-color 0.2s, background 0.2s;
 }
 
 .form-group input[type="text"]:focus,
 .form-group input[type="email"]:focus {
-  border-color: rgba(102, 126, 234, 0.6);
-  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .form-group input[readonly] {
@@ -291,6 +347,8 @@ canvas {
   font-weight: 700;
   flex-shrink: 0;
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .color-grid {
@@ -301,7 +359,7 @@ canvas {
 
 .color-swatch {
   aspect-ratio: 1;
-  border-radius: 10px;
+  border-radius: 14px;
   border: 2px solid transparent;
   cursor: pointer;
   transition: border-color 0.15s, transform 0.15s;
@@ -328,7 +386,7 @@ canvas {
 
 .btn {
   padding: 10px 24px;
-  border-radius: 10px;
+  border-radius: 14px;
   font-size: 14px;
   font-weight: 600;
   font-family: inherit;
@@ -353,13 +411,15 @@ canvas {
 }
 
 .btn-outline {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   color: rgba(255, 255, 255, 0.7);
 }
 
 .btn-outline:hover:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.12);
   color: #fff;
 }
 

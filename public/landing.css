@@ -254,7 +254,7 @@ body {
 .modal-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(211, 211, 211, 0.7);
 }
 
 .modal-content {
@@ -265,7 +265,7 @@ body {
   padding: 32px;
   max-width: 480px;
   width: 100%;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 40px rgba(211, 211, 211, 0.5);
 }
 
 .modal-content h2 {
