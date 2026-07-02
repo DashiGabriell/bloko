@@ -130,6 +130,12 @@
         </div>
         <div class="card">
           <h3 id="storeFormTitle">Nova Loja</h3>
+          <p class="card-desc" style="margin-top:-8px;margin-bottom:16px">
+            O <strong>slug</strong> deve corresponder exatamente ao definido nas
+            <code>doorPositions</code> do <code>scene-metadata.json</code>
+            para que a porta no jogo encontre esta loja.
+          </p>
+          <div id="doorMappingHint" class="door-mapping-hint" style="display:none"></div>
           <form id="storeForm" class="store-form">
             <div class="form-row">
               <div class="form-group">
@@ -150,7 +156,9 @@
                   <option value="servicos">Serviços</option>
                   <option value="educacao">Educação</option>
                   <option value="lazer">Lazer</option>
-                  <option value="outro">Outro</option>
+                  <option value="vestuario">Vestuário</option>
+                  <option value="entretenimento">Entretenimento</option>
+                  <option value="outros">Outros</option>
                 </select>
               </div>
               <div class="form-group">
@@ -162,10 +170,12 @@
               <div class="form-group">
                 <label>Posição X</label>
                 <input type="number" name="pos_x" step="0.1" value="0">
+                <span class="field-hint">Coordenada X da porta (deve bater com doorPosition)</span>
               </div>
               <div class="form-group">
                 <label>Posição Z</label>
                 <input type="number" name="pos_z" step="0.1" value="0">
+                <span class="field-hint">Coordenada Z da porta (deve bater com doorPosition)</span>
               </div>
             </div>
             <div class="form-row">

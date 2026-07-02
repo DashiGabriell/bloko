@@ -7,6 +7,7 @@
     "start": "node server.js",
     "build:scene": "node tools/build-scene.mjs && npx gltf-transform draco public/assets/scene.glb public/assets/scene.glb",
     "analyze:scene": "node tools/analyze-scene.mjs",
+"create:terrain": "node tools/create-terrain.mjs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

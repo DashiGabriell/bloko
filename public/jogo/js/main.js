@@ -13,8 +13,10 @@ let MOVE_SPEED = 5;
 const PLAYER_SIZE = 0.5;
 const PLAYER_HEIGHT = 0.5;
 const VOXEL_CENTER_Y = 0.55;
-let BOUNDARY = 18;
+let BOUNDARY = 22.5;
 let SERVER_CONFIG = null;
+let COLLISION_ENABLED = true;
+let TOUCH_ENABLED = true;
 
 let keyState = {};
 let touchInput = { x: 0, y: 0 };
@@ -27,6 +29,9 @@ let currentRotation = 0;
 let lastSendTime = 0;
 let sceneReady = false;
 let worldGroup = null;
+let storeCooldown = 0;
+const STORE_COOLDOWN_MS = 1500;
+let storeOpen = false;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
@@ -150,27 +155,39 @@ socket.on('connect', () => {
   socket.emit('player:join', { nickname, avatarColor });
 });
 
-socket.on('server:config', (cfg) => {
+socket.on('server:config', applyConfig);
+socket.on('config:update', applyConfig);
+
+function applyConfig(cfg) {
   SERVER_CONFIG = cfg;
   if (cfg.environment) {
-    BOUNDARY = cfg.environment.worldBounds ?? BOUNDARY;
-    MOVE_SPEED = cfg.environment.playerSpeed ?? MOVE_SPEED;
-    LERP_FACTOR = cfg.environment.lerpFactor ?? LERP_FACTOR;
-    scene.background = new THREE.Color(cfg.environment.skyColor ?? '#87CEEB');
+    const e = cfg.environment;
+    BOUNDARY = e.worldBounds ?? BOUNDARY;
+    MOVE_SPEED = e.playerSpeed ?? MOVE_SPEED;
+    LERP_FACTOR = e.lerpFactor ?? LERP_FACTOR;
+    scene.background = new THREE.Color(e.skyColor ?? '#87CEEB');
     if (cfg.features?.fog) {
       scene.fog = new THREE.Fog(
-        new THREE.Color(cfg.environment.fogColor ?? '#87CEEB'),
-        cfg.environment.fogNear ?? 25,
-        cfg.environment.fogFar ?? 45
+        new THREE.Color(e.fogColor ?? '#87CEEB'),
+        e.fogNear ?? 25,
+        e.fogFar ?? 45
       );
     } else {
       scene.fog = null;
     }
-    renderer.toneMappingExposure = cfg.environment.toneMappingExposure ?? 1.2;
-    camCtrl.setDefaultDistance(cfg.environment.cameraDistance ?? camCtrl.defaultDistance);
-    camCtrl.setDefaultHeight(cfg.environment.cameraHeight ?? camCtrl.defaultHeight);
-    camera.fov = cfg.environment.cameraFov ?? camera.fov;
+    renderer.toneMappingExposure = e.toneMappingExposure ?? 1.2;
+    camCtrl.setDefaultDistance(e.cameraDistance ?? camCtrl.defaultDistance);
+    camCtrl.setDefaultHeight(e.cameraHeight ?? camCtrl.defaultHeight);
+    camera.fov = e.cameraFov ?? camera.fov;
     camera.updateProjectionMatrix();
+    ambientLight.intensity = e.ambientLightIntensity ?? ambientLight.intensity;
+    dirLight.intensity = e.directionalLightIntensity ?? dirLight.intensity;
+    fillLight.intensity = e.fillLightIntensity ?? fillLight.intensity;
+    hemiLight.intensity = e.hemisphereLightIntensity ?? hemiLight.intensity;
+    if (e.fogColor) {
+      scene.fog?.color.set(e.fogColor);
+      hemiLight.color.set(e.fogColor);
+    }
   }
   if (cfg.network) {
     TICK_RATE = cfg.network.tickRate ?? TICK_RATE;
@@ -178,9 +195,15 @@ socket.on('server:config', (cfg) => {
   }
   if (cfg.features) {
     renderer.shadowMap.enabled = cfg.features.sceneShadows ?? true;
+    COLLISION_ENABLED = cfg.features.collisionDetection ?? true;
+    TOUCH_ENABLED = cfg.features.touchControls ?? true;
+    const joystickZone = document.getElementById('joystick-zone');
+    if (joystickZone) {
+      joystickZone.style.display = TOUCH_ENABLED && isTouchDevice ? 'block' : 'none';
+    }
   }
-  console.log('Config recebida do servidor:', cfg);
-});
+  console.log('Config aplicada:', cfg);
+}
 
 socket.on('current-players', (players) => {
   for (const id of [...remotePlayers.keys()]) {
@@ -238,9 +261,12 @@ socket.on('store:open', (store) => {
 
 socket.on('store:closed', () => {
   hideStoreOverlay();
+  storeCooldown = Date.now() + STORE_COOLDOWN_MS;
 });
 
 camCtrl.onEnterStore = (storeId) => {
+  const now = Date.now();
+  if (now < storeCooldown) return;
   if (SERVER_CONFIG?.features?.iframePortals !== false) {
     socket.emit('store:enter', { storeId });
   }
@@ -250,18 +276,34 @@ camCtrl.onLeaveStore = () => {
   socket.emit('store:leave');
 };
 
+function isStoreOverlayVisible() {
+  const overlay = document.getElementById('store-overlay');
+  return overlay && !overlay.classList.contains('hidden');
+}
+
 document.addEventListener('click', (e) => {
   const closeBtn = document.getElementById('store-overlay-close');
   if (closeBtn && closeBtn.contains(e.target)) {
     hideStoreOverlay();
     socket.emit('store:leave');
+    storeCooldown = Date.now() + STORE_COOLDOWN_MS;
+    return;
+  }
+
+  const overlay = document.getElementById('store-overlay');
+  const content = document.getElementById('store-overlay-content');
+  if (overlay && content && !overlay.classList.contains('hidden') && !content.contains(e.target)) {
+    hideStoreOverlay();
+    socket.emit('store:leave');
+    storeCooldown = Date.now() + STORE_COOLDOWN_MS;
   }
 });
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
+  if (e.key === 'Escape' && isStoreOverlayVisible()) {
     hideStoreOverlay();
     socket.emit('store:leave');
+    storeCooldown = Date.now() + STORE_COOLDOWN_MS;
   }
 });
 
@@ -290,8 +332,11 @@ async function loadSceneMetadata() {
 function showStoreOverlay(store) {
   const overlay = document.getElementById('store-overlay');
   const iframe = document.getElementById('store-iframe');
+  const nameEl = document.getElementById('store-overlay-name');
   if (!overlay || !iframe) return;
+  if (nameEl) nameEl.textContent = store.name || '';
   iframe.src = store.site_url || 'about:blank';
+  storeOpen = true;
   overlay.classList.remove('hidden');
 }
 
@@ -300,13 +345,35 @@ function hideStoreOverlay() {
   const iframe = document.getElementById('store-iframe');
   if (overlay) overlay.classList.add('hidden');
   if (iframe) iframe.src = 'about:blank';
+  storeOpen = false;
 }
 
-function checkCollision(x, z) {
+let collisionDebug = false;
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'c' && !e.ctrlKey && !e.metaKey) {
+    collisionDebug = !collisionDebug;
+    console.log(`%c[Collision Debug] ${collisionDebug ? 'ATIVADO' : 'DESATIVADO'}`, 'font-weight:bold;color:' + (collisionDebug ? '#0f0' : '#f00'));
+  }
+});
+
+function checkCollision(x, z, label) {
+  if (!COLLISION_ENABLED) return false;
+
   const padding = PLAYER_SIZE / 2 + 0.1;
-  for (const b of buildingBounds) {
+  for (let i = 0; i < buildingBounds.length; i++) {
+    const b = buildingBounds[i];
     if (x + padding > b.x[0] && x - padding < b.x[1] &&
         z + padding > b.z[0] && z - padding < b.z[1]) {
+      if (collisionDebug) {
+        const name = b.name || `bound #${i}`;
+        console.log(
+          `%c[COLISAO] %c${name}%c bloqueou ${label || 'movimento'} em (${x.toFixed(2)}, ${z.toFixed(2)}) | bounds: X[${b.x[0]}, ${b.x[1]}] Z[${b.z[0]}, ${b.z[1]}]`,
+          'font-weight:bold;color:#f44',
+          'font-weight:bold;color:#ff0',
+          'color:#aaa'
+        );
+      }
       return true;
     }
   }
@@ -317,6 +384,9 @@ function checkCollision(x, z) {
   }
 
   if (Math.abs(x) > BOUNDARY || Math.abs(z) > BOUNDARY) {
+    if (collisionDebug) {
+      console.log(`%c[COLISAO] %cLimite do mundo%c em (${x.toFixed(2)}, ${z.toFixed(2)}) | BOUNDARY=${BOUNDARY}`, 'font-weight:bold;color:#f44', 'font-weight:bold;color:#ff0', 'color:#aaa');
+    }
     return true;
   }
 
@@ -324,6 +394,8 @@ function checkCollision(x, z) {
 }
 
 function updateMovement(dt) {
+  if (storeOpen) return;
+
   let dx = 0;
   let dz = 0;
 
@@ -345,8 +417,8 @@ function updateMovement(dt) {
     const newX = targetX + dx * MOVE_SPEED * dt;
     const newZ = targetZ + dz * MOVE_SPEED * dt;
 
-    if (!checkCollision(newX, targetZ)) targetX = newX;
-    if (!checkCollision(targetX, newZ)) targetZ = newZ;
+    if (!checkCollision(newX, targetZ, 'eixo X')) targetX = newX;
+    if (!checkCollision(targetX, newZ, 'eixo Z')) targetZ = newZ;
 
     currentRotation = Math.atan2(dx, dz);
   }
@@ -381,6 +453,69 @@ function hideLoading() {
   if (el) el.classList.add('hidden');
 }
 
+// --- BOUNDARY VISUALIZER ---
+let boundaryGroup = null;
+let boundaryVisible = false;
+
+function createBoundaryVisualizer() {
+  const group = new THREE.Group();
+
+  const half = BOUNDARY;
+  const gridDivisions = 8;
+  const step = (half * 2) / gridDivisions;
+
+  const gridMat = new THREE.LineBasicMaterial({ color: 0x44cc44, transparent: true, opacity: 0.4 });
+  for (let i = 0; i <= gridDivisions; i++) {
+    const t = -half + i * step;
+    const px = [new THREE.Vector3(t, 0.01, -half), new THREE.Vector3(t, 0.01, half)];
+    const pz = [new THREE.Vector3(-half, 0.01, t), new THREE.Vector3(half, 0.01, t)];
+    const gx = new THREE.Line(new THREE.BufferGeometry().setFromPoints(px), gridMat);
+    const gz = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pz), gridMat);
+    group.add(gx, gz);
+  }
+
+  const fillMat = new THREE.MeshBasicMaterial({
+    color: 0x44cc44,
+    transparent: true,
+    opacity: 0.08,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const fill = new THREE.Mesh(new THREE.PlaneGeometry(half * 2, half * 2), fillMat);
+  fill.rotation.x = -Math.PI / 2;
+  fill.position.y = -0.005;
+  group.add(fill);
+
+  const borderMat = new THREE.LineBasicMaterial({ color: 0xff4444, linewidth: 2 });
+  const pts = [
+    new THREE.Vector3(-half, 0.02, -half),
+    new THREE.Vector3(half, 0.02, -half),
+    new THREE.Vector3(half, 0.02, half),
+    new THREE.Vector3(-half, 0.02, half),
+    new THREE.Vector3(-half, 0.02, -half),
+  ];
+  const border = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), borderMat);
+  group.add(border);
+
+  group.visible = false;
+  scene.add(group);
+  boundaryGroup = group;
+}
+
+function toggleBoundaryVisualizer() {
+  boundaryVisible = !boundaryVisible;
+  if (boundaryGroup) {
+    boundaryGroup.visible = boundaryVisible;
+  }
+  console.log(`%c[Limites] ${boundaryVisible ? 'MOSTRANDO' : 'ESCONDENDO'} area caminhavel (BOUNDARY=${BOUNDARY})`, 'font-weight:bold;color:' + (boundaryVisible ? '#0f0' : '#f44'));
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'g' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    toggleBoundaryVisualizer();
+  }
+});
+
 // --- LOAD .GLB SCENE ---
 const loader = new GLTFLoader();
 const dracoLoader = new DRACOLoader();
@@ -413,16 +548,9 @@ loader.load(
         }));
         console.log(`Collision bounds carregados: ${buildingBounds.length} edificio(s)`);
       }
-      if (metadata.stores && metadata.stores.length > 0) {
-        const storeZones = metadata.stores.map(s => ({
-          cx: s.center[0],
-          cz: s.center[1],
-          storeId: s.storeId,
-        }));
-        camCtrl.setStoreZones(storeZones);
-        console.log(`Store zones carregadas: ${storeZones.length} loja(s)`);
-      }
     }
+
+    createBoundaryVisualizer();
 
     sceneReady = true;
     hideLoading();

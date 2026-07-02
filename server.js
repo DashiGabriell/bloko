@@ -411,9 +411,16 @@ const playerSockets = new Map();
 const socketToPlayerId = new Map();
 const playerIdToSocket = new Map();
 
-function applyConfigToSocket(socket) {
+async function applyConfigToSocket(socket) {
   try {
-    const cfg = configManager.getConfig();
+    let cfg;
+    try {
+      const { data } = await supabaseAdmin.rpc('get_all_settings');
+      const fullConfig = configManager.getConfig();
+      cfg = { ...fullConfig, ...(data || {}) };
+    } catch {
+      cfg = configManager.getConfig();
+    }
     socket.emit('server:config', {
       environment: cfg.environment,
       features: cfg.features,
@@ -515,14 +522,24 @@ io.on('connection', (socket) => {
       const storeId = data?.storeId;
       if (!storeId) return;
 
-      const { data: store, error } = await supabaseAdmin
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(storeId);
+
+      let query = supabaseAdmin
         .from('stores')
-        .select('id, name, site_url, logo_url, category')
-        .eq('id', storeId)
-        .single();
+        .select('id, name, site_url, logo_url, category');
+
+      if (isUUID) {
+        query = query.eq('id', storeId);
+      } else {
+        query = query.eq('slug', storeId);
+      }
+
+      const { data: store, error } = await query.single();
 
       if (!error && store) {
         socket.emit('store:open', store);
+      } else {
+        socket.emit('store:closed');
       }
     } catch (err) {
       console.error(`Erro em store:enter (${socket.id}):`, err.message);

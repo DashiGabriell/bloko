@@ -25,7 +25,7 @@ const STORE_ZOOM = {
   lookHeight: 1.8,
 };
 
-const TRIGGER_R = 4;
+const TRIGGER_R = 2;
 
 export class CameraController {
   constructor(camera) {

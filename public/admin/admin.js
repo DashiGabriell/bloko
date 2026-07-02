@@ -386,6 +386,64 @@ $('#roomForm').addEventListener('submit', async (e) => {
   }
 });
 
+// === DOOR MAPPING (from scene-metadata.json) ===
+let doorPositionsCache = null;
+
+async function loadDoorMapping() {
+  try {
+    const res = await fetch('/assets/scene-metadata.json');
+    if (!res.ok) return;
+    const metadata = await res.json();
+    const doors = metadata.doorPositions;
+    if (!doors || doors.length === 0) { doorPositionsCache = []; return; }
+    doorPositionsCache = doors;
+    const hintEl = $('#doorMappingHint');
+    if (!hintEl) return;
+    hintEl.innerHTML = `
+      <strong style="color:var(--text-primary)">Portas disponíveis no cenário 3D:</strong>
+      <table>
+        <thead><tr><th>Porta</th><th>Slug</th><th>Posição (X, Z)</th><th>Store vinculada</th></tr></thead>
+        <tbody>
+          ${doors.map(d => {
+            const slug = d.slug;
+            const storeName = slug ? (slug.charAt(0).toUpperCase() + slug.slice(1).replace(/-/g, ' ')) : '—';
+            return `<tr>
+              <td><code>${d.name}</code></td>
+              <td><span class="badge">${slug || '—'}</span></td>
+              <td>(${d.position[0].toFixed(2)}, ${d.position[1].toFixed(2)})</td>
+              <td id="door-store-${slug}">${storeName}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+      <p style="margin-top:8px;font-size:11px;color:var(--text-muted)">
+        O <strong>slug</strong> da loja no banco deve ser <strong>exatamente igual</strong> ao slug da porta acima.
+        Use os campos <strong>Posição X/Z</strong> iguais aos da porta para o trigger funcionar.
+      </p>
+    `;
+    hintEl.style.display = 'block';
+  } catch (err) {
+    console.error('Erro ao carregar door mapping:', err);
+  }
+}
+
+function updateDoorMappingWithStoreData(stores) {
+  if (!doorPositionsCache) return;
+  for (const d of doorPositionsCache) {
+    const slug = d.slug;
+    if (!slug) continue;
+    const match = stores.find(s => s.slug === slug);
+    const cell = document.getElementById(`door-store-${slug}`);
+    if (cell) {
+      if (match) {
+        cell.innerHTML = `<span style="color:var(--success)">${match.name}</span>`;
+      } else {
+        cell.innerHTML = `<span style="color:var(--warning)">⚠ Nenhuma loja com este slug</span>`;
+      }
+    }
+  }
+}
+
 // === STORES ===
 async function loadStores() {
   try {
@@ -428,6 +486,7 @@ async function loadStores() {
     `;
     container.innerHTML = '';
     container.appendChild(t);
+    updateDoorMappingWithStoreData(stores);
   } catch (err) {
     console.error('Erro ao carregar lojas:', err);
   }
@@ -789,7 +848,7 @@ function startAutoRefresh() {
       if (activeTab) {
         const tab = activeTab.dataset.tab;
         if (tab === 'rooms') loadRooms();
-        if (tab === 'stores') loadStores();
+        if (tab === 'stores') { loadDoorMapping(); loadStores(); }
         if (tab === 'players') loadPlayers();
         if (tab === 'dashboard') loadDashboardStats();
       }
@@ -808,6 +867,7 @@ function stopAutoRefresh() {
 async function init() {
   await loadConfig();
   startAutoRefresh();
+  loadDoorMapping();
   loadRooms();
   loadStores();
   loadPlayers();

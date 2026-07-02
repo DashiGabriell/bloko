@@ -21,7 +21,7 @@ const defaults = {
   },
 
   environment: {
-    worldBounds: 18,
+    worldBounds: 22.5,
     playerSize: 0.5,
     playerHeight: 0.5,
     playerSpeed: 5,

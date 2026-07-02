@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "generatedAt": "2026-07-02T18:09:05.842Z",
+  "generatedAt": "2026-07-02T19:10:01.629Z",
   "buildings": [
     {
       "name": "Café",
@@ -108,34 +108,5 @@
     }
   ],
   "stores": [],
-  "doorPositions": [
-    {
-      "name": "Door_SmallBuilding",
-      "position": [
-        -10.87,
-        -5.3
-      ]
-    },
-    {
-      "name": "Door_Hotel",
-      "position": [
-        14.88,
-        -4.41
-      ]
-    },
-    {
-      "name": "Door_Restaurant",
-      "position": [
-        17.87,
-        -4.42
-      ]
-    },
-    {
-      "name": "Door_NewBuilding",
-      "position": [
-        19.56,
-        5.15
-      ]
-    }
-  ]
+  "doorPositions": []
 }

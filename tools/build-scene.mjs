@@ -17,12 +17,49 @@ if (typeof globalThis.FileReader === 'undefined') {
 
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
-import { writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync, readFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// ============================================================
+// LOAD CONFIG
+// ============================================================
+function loadBuildConfig() {
+  const configPath = join(__dirname, '..', 'config', 'config.json');
+  const defaults = {
+    halfStreet: 20,
+    streetWidth: 8,
+    sidewalkWidth: 1.5,
+    buildingWidth: 5,
+    buildingDepth: 4,
+    buildingHeight: 3.2,
+    lightDirection: { x: 0.4, y: 0.7, z: 0.3 },
+    ambientIntensity: 0.35,
+    lightIntensity: 0.65,
+    includeTrees: true,
+    includeLamps: true,
+    includeStreetMarkings: true,
+    vertexBakingEnabled: true,
+    ambientOcclusion: true,
+  };
+
+  try {
+    const raw = readFileSync(configPath, 'utf8');
+    const file = JSON.parse(raw);
+    const build = file.build || {};
+    return { ...defaults, ...build };
+  } catch {
+    return defaults;
+  }
+}
+
+const cfg = loadBuildConfig();
+console.log('[Build] Configuração:', JSON.stringify(cfg, null, 2));
+
 const OUTPUT = join(__dirname, '..', 'public', 'assets', 'scene.glb');
+const METADATA_OUTPUT = join(__dirname, '..', 'public', 'assets', 'scene-metadata.json');
 
 mkdirSync(dirname(OUTPUT), { recursive: true });
 
@@ -196,14 +233,14 @@ function bakeLightingInMesh(mesh, lightDir, ambientIntensity, lightIntensity) {
 }
 
 // ============================================================
-// CITY LAYOUT CONSTANTS
+// CITY LAYOUT CONSTANTS (from config)
 // ============================================================
-const HALF_STREET = 20;
-const STREET_WIDTH = 8;
-const SIDEWALK_WIDTH = 1.5;
-const BW = 5;
-const BD = 4;
-const BH = 3.2;
+const HALF_STREET = cfg.halfStreet;
+const STREET_WIDTH = cfg.streetWidth;
+const SIDEWALK_WIDTH = cfg.sidewalkWidth;
+const BW = cfg.buildingWidth;
+const BD = cfg.buildingDepth;
+const BH = cfg.buildingHeight;
 const sidewalkY = 0.05;
 
 const leftRowZ = -(STREET_WIDTH / 2 + SIDEWALK_WIDTH + BD / 2);
@@ -214,7 +251,9 @@ const bx = [-HALF_STREET / 4, HALF_STREET / 4];
 // STREET
 // ============================================================
 scene.add(createPlane(HALF_STREET * 2, STREET_WIDTH, 0x444444, { x: 0, y: 0, z: 0 }));
-scene.add(createPlane(HALF_STREET * 2 - 2, 0.1, 0x888888, { x: 0, y: 0.01, z: 0 }));
+if (cfg.includeStreetMarkings) {
+  scene.add(createPlane(HALF_STREET * 2 - 2, 0.1, 0x888888, { x: 0, y: 0.01, z: 0 }));
+}
 
 // ============================================================
 // SIDEWALKS
@@ -332,45 +371,70 @@ for (const b of buildings) {
 }
 
 // ============================================================
-// TREES
+// TREES (feature flag: includeTrees)
 // ============================================================
-const trees = [
-  { x: -HALF_STREET / 2 + 1, z: leftRowZ - 2.5 },
-  { x: -HALF_STREET / 2 + 1, z: rightRowZ + 2.5 },
-  { x: HALF_STREET / 2 - 1, z: leftRowZ - 2.5 },
-  { x: HALF_STREET / 2 - 1, z: rightRowZ + 2.5 },
-];
-for (const t of trees) {
-  scene.add(createTree(t, 0.8));
-}
-
-// ============================================================
-// LAMPS
-// ============================================================
-const lamps = [
-  { x: -4, z: -(STREET_WIDTH / 2 + 0.5) },
-  { x: 4, z: -(STREET_WIDTH / 2 + 0.5) },
-  { x: -4, z: (STREET_WIDTH / 2 + 0.5) },
-  { x: 4, z: (STREET_WIDTH / 2 + 0.5) },
-];
-for (const l of lamps) {
-  scene.add(createStreetLamp(l));
-}
-
-// ============================================================
-// BAKED LIGHTING
-// ============================================================
-const lightDir = new THREE.Vector3(0.4, 0.7, 0.3).normalize();
-scene.traverse((child) => {
-  if (child.isMesh) {
-    bakeLightingInMesh(child, lightDir, 0.35, 0.65);
+if (cfg.includeTrees) {
+  const trees = [
+    { x: -HALF_STREET / 2 + 1, z: leftRowZ - 2.5 },
+    { x: -HALF_STREET / 2 + 1, z: rightRowZ + 2.5 },
+    { x: HALF_STREET / 2 - 1, z: leftRowZ - 2.5 },
+    { x: HALF_STREET / 2 - 1, z: rightRowZ + 2.5 },
+  ];
+  for (const t of trees) {
+    scene.add(createTree(t, 0.8));
   }
-});
+}
+
+// ============================================================
+// LAMPS (feature flag: includeLamps)
+// ============================================================
+if (cfg.includeLamps) {
+  const lamps = [
+    { x: -4, z: -(STREET_WIDTH / 2 + 0.5) },
+    { x: 4, z: -(STREET_WIDTH / 2 + 0.5) },
+    { x: -4, z: (STREET_WIDTH / 2 + 0.5) },
+    { x: 4, z: (STREET_WIDTH / 2 + 0.5) },
+  ];
+  for (const l of lamps) {
+    scene.add(createStreetLamp(l));
+  }
+}
+
+// ============================================================
+// BAKED LIGHTING (from config)
+// ============================================================
+if (cfg.vertexBakingEnabled) {
+  const ld = cfg.lightDirection;
+  const lightDir = new THREE.Vector3(ld.x, ld.y, ld.z).normalize();
+  scene.traverse((child) => {
+    if (child.isMesh) {
+      bakeLightingInMesh(child, lightDir, cfg.ambientIntensity, cfg.lightIntensity);
+    }
+  });
+}
 
 // ============================================================
 // EXPORT
 // ============================================================
 console.log('Exportando cena para .glb...');
+
+// Gerar metadata com bounds dos edifícios (para colisão no jogo)
+const metadata = {
+  buildings: buildings.map(b => {
+    const isLeft = b.z < 0;
+    return {
+      name: b.name,
+      bounds: {
+        x: [b.x - BW / 2, b.x + BW / 2],
+        z: [b.z - BD / 2, b.z + BD / 2],
+      },
+    };
+  }),
+  stores: [],
+};
+
+writeFileSync(METADATA_OUTPUT, JSON.stringify(metadata, null, 2));
+console.log(`OK: ${METADATA_OUTPUT}`);
 
 const exporter = new GLTFExporter();
 

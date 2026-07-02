@@ -492,6 +492,53 @@ body {
   color: var(--accent);
 }
 
+.door-mapping-hint {
+  background: rgba(0,170,255,0.06);
+  border: 1px solid rgba(0,170,255,0.15);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.door-mapping-hint table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.door-mapping-hint th {
+  text-align: left;
+  color: var(--text-muted);
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+
+.door-mapping-hint td {
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(42,42,74,0.5);
+  color: var(--text-primary);
+}
+
+.door-mapping-hint code {
+  color: var(--accent);
+  background: rgba(0,170,255,0.1);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.field-hint {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
 /* === ROOMS LIST === */
 .room-card {
   display: flex;
