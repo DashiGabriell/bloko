@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import nipplejs from 'nipplejs';
-import { PlayerVoxel, PALETTES } from './player-voxel.js';
 import { CameraController } from './camera.js';
 import { PlayerModel3D } from './player-model-3d.js';
 
@@ -12,7 +11,6 @@ let LERP_FACTOR = 0.1;
 let MOVE_SPEED = 5;
 const PLAYER_SIZE = 0.5;
 const PLAYER_HEIGHT = 0.5;
-const VOXEL_CENTER_Y = 0.55;
 let BOUNDARY = 22.5;
 let SERVER_CONFIG = null;
 let COLLISION_ENABLED = true;
@@ -25,7 +23,7 @@ let targetX = 0;
 let targetZ = 0;
 let currentX = 0;
 let currentZ = 0;
-let currentRotation = 0;
+let currentRotation = Math.PI;
 let lastSendTime = 0;
 let sceneReady = false;
 let worldGroup = null;
@@ -85,21 +83,12 @@ targetZ = -5.5;
 
 const remotePlayers = new Map();
 
-function createRemotePlayer(id) {
-  const colorIdx = remotePlayers.size % PALETTES.length;
-  const voxel = new PlayerVoxel(PALETTES[colorIdx]);
-  voxel.position.set(0, VOXEL_CENTER_Y, 0);
-  scene.add(voxel.group);
-  remotePlayers.set(id, { voxel, targetX: 0, targetZ: 0, targetY: VOXEL_CENTER_Y, currentX: 0, currentZ: 0, rotation: 0 });
+function createRemotePlayer(id, nickname, avatarColor) {
+  remotePlayers.set(id, { targetX: 0, targetZ: 0, currentX: 0, currentZ: 0, rotation: 0, nickname: nickname || 'Jogador', avatarColor: avatarColor || '#4F46E5' });
 }
 
 function removeRemotePlayer(id) {
-  const p = remotePlayers.get(id);
-  if (p) {
-    p.voxel.dispose();
-    scene.remove(p.voxel.group);
-    remotePlayers.delete(id);
-  }
+  remotePlayers.delete(id);
 }
 
 updateHUDCount();
@@ -211,19 +200,31 @@ socket.on('current-players', (players) => {
   }
   for (const p of players) {
     if (p.id === socket.id) continue;
-    createRemotePlayer(p.id);
+    createRemotePlayer(p.id, p.nickname, p.avatarColor);
     const rp = remotePlayers.get(p.id);
     if (rp) {
       rp.currentX = p.x;
       rp.currentZ = p.z;
       rp.targetX = p.x;
       rp.targetZ = p.z;
-      rp.targetY = p.y ?? VOXEL_CENTER_Y;
       rp.rotation = p.rotation || 0;
-      rp.voxel.position.set(p.x, p.y ?? VOXEL_CENTER_Y, p.z);
     }
   }
   updateHUDCount();
+  renderPlayerList();
+});
+
+socket.on('player:joined', (p) => {
+  if (p.id === socket.id) return;
+  if (!remotePlayers.has(p.id)) {
+    createRemotePlayer(p.id, p.nickname, p.avatarColor);
+  }
+  const rp = remotePlayers.get(p.id);
+  if (rp) {
+    rp.nickname = p.nickname || rp.nickname;
+    rp.avatarColor = p.avatar_color || p.avatarColor || rp.avatarColor;
+  }
+  renderPlayerList();
 });
 
 socket.on('game-state', (players) => {
@@ -232,7 +233,7 @@ socket.on('game-state', (players) => {
     if (p.id === socket.id) continue;
     activeIds.add(p.id);
     if (!remotePlayers.has(p.id)) {
-      createRemotePlayer(p.id);
+      createRemotePlayer(p.id, p.nickname, p.avatarColor);
     }
     const rp = remotePlayers.get(p.id);
     if (rp) {
@@ -240,6 +241,8 @@ socket.on('game-state', (players) => {
       rp.targetZ = p.z;
       rp.targetY = p.y ?? VOXEL_CENTER_Y;
       rp.rotation = p.rotation || 0;
+      rp.nickname = p.nickname || rp.nickname;
+      rp.avatarColor = p.avatarColor || rp.avatarColor;
     }
   }
   for (const [id] of remotePlayers) {
@@ -248,11 +251,13 @@ socket.on('game-state', (players) => {
     }
   }
   updateHUDCount();
+  renderPlayerList();
 });
 
 socket.on('player-disconnected', (id) => {
   removeRemotePlayer(id);
   updateHUDCount();
+  renderPlayerList();
 });
 
 socket.on('store:open', (store) => {
@@ -308,16 +313,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 // --- COLLISION BOXES FOR BUILDINGS ---
-let buildingBounds = [
-  { x: [-7.5, -2.5], z: [-9.5, -5.5] },
-  { x: [2.5, 7.5], z: [-9.5, -5.5] },
-  { x: [-7.5, -2.5], z: [5.5, 9.5] },
-  { x: [2.5, 7.5], z: [5.5, 9.5] },
-  { x: [-13.35, -8.35], z: [-9.5, -5.5] },
-  { x: [8.9, 15.6], z: [-11.3, -4.4] },
-  { x: [15.5, 21.0], z: [-8.5, -4.0] },
-  { x: [16.5, 22.0], z: [4.5, 9.5] },
-];
+let buildingBounds = [];
 
 async function loadSceneMetadata() {
   try {
@@ -409,7 +405,13 @@ function updateMovement(dt) {
     dz = touchInput.y;
   }
 
-  if (dx !== 0 || dz !== 0) {
+  const hasInput = dx !== 0 || dz !== 0;
+
+  if (hasInput) {
+    const transformed = camCtrl.transformInputForMovement(dx, dz);
+    dx = transformed.x;
+    dz = transformed.z;
+
     const len = Math.sqrt(dx * dx + dz * dz);
     dx /= len;
     dz /= len;
@@ -423,7 +425,7 @@ function updateMovement(dt) {
     currentRotation = Math.atan2(dx, dz);
   }
 
-  if (dx === 0 && dz === 0) {
+  if (!hasInput) {
     localPlayer.changeState('idle');
   } else if (keyState['shift']) {
     localPlayer.changeState('run');
@@ -438,7 +440,7 @@ function updateMovement(dt) {
   localPlayer.position.z = currentZ;
   localPlayer.rotation.y = currentRotation;
 
-  camCtrl.update(currentX, currentZ);
+  camCtrl.update(currentX, currentZ, currentRotation, dt);
 }
 
 function updateHUDCount() {
@@ -446,6 +448,49 @@ function updateHUDCount() {
   if (countEl) {
     countEl.textContent = remotePlayers.size + 1;
   }
+}
+
+function renderPlayerList() {
+  const list = document.getElementById('player-list');
+  if (!list) return;
+  list.innerHTML = '';
+
+  const localNickname = localStorage.getItem('bloko_nickname') || 'Jogador';
+  const localColor = localStorage.getItem('bloko_avatarColor') || '#4A90D9';
+
+  const li = document.createElement('li');
+  li.className = 'player-list-item';
+  li.innerHTML = `<span class="player-list-avatar" style="background:${localColor}"></span><span class="player-list-name">${localNickname}</span><span class="player-list-you">você</span>`;
+  list.appendChild(li);
+
+  for (const [id, rp] of remotePlayers) {
+    const item = document.createElement('li');
+    item.className = 'player-list-item';
+    item.innerHTML = `<span class="player-list-avatar" style="background:${rp.avatarColor}"></span><span class="player-list-name">${rp.nickname}</span>`;
+    list.appendChild(item);
+  }
+}
+
+const playerCountEl = document.getElementById('player-count');
+const playerListPopup = document.getElementById('player-list-popup');
+if (playerCountEl && playerListPopup) {
+  playerCountEl.addEventListener('click', () => {
+    playerListPopup.classList.toggle('hidden');
+    if (!playerListPopup.classList.contains('hidden')) {
+      renderPlayerList();
+    }
+  });
+  const popupCloseBtn = playerListPopup.querySelector('.glass-popup-close');
+  if (popupCloseBtn) {
+    popupCloseBtn.addEventListener('click', () => {
+      playerListPopup.classList.add('hidden');
+    });
+  }
+  document.addEventListener('click', (e) => {
+    if (!playerCountEl.contains(e.target) && !playerListPopup.contains(e.target)) {
+      playerListPopup.classList.add('hidden');
+    }
+  });
 }
 
 function hideLoading() {
@@ -550,6 +595,12 @@ loader.load(
       }
     }
 
+    const meshes = [];
+    worldGroup.traverse((child) => {
+      if (child.isMesh) meshes.push(child);
+    });
+    camCtrl.setObstacles(meshes);
+
     createBoundaryVisualizer();
 
     sceneReady = true;
@@ -578,14 +629,8 @@ function gameLoop(time) {
   updateMovement(dt);
 
   for (const [, rp] of remotePlayers) {
-    const dx = rp.targetX - rp.voxel.position.x;
-    const dz = rp.targetZ - rp.voxel.position.z;
-    rp.voxel.changeState(Math.abs(dx) > 0.01 || Math.abs(dz) > 0.01 ? 'walk' : 'idle');
-    rp.voxel.position.x += dx * LERP_FACTOR;
-    rp.voxel.position.z += dz * LERP_FACTOR;
-    rp.voxel.position.y += (rp.targetY - rp.voxel.position.y) * LERP_FACTOR;
-    rp.voxel.rotation.y = rp.rotation;
-    rp.voxel.updateAnimation(dt);
+    rp.currentX += (rp.targetX - rp.currentX) * LERP_FACTOR;
+    rp.currentZ += (rp.targetZ - rp.currentZ) * LERP_FACTOR;
   }
 
   localPlayer.updateAnimation(dt);

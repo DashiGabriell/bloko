@@ -107,6 +107,8 @@ const KNOWN_BUILDINGS = [
   { x: [8.9, 15.6],    z: [-11.3, -4.4],  name: 'Hotel' },
   { x: [15.5, 21.0],   z: [-8.5, -4.0],   name: 'Restaurant' },
   { x: [16.5, 22.0],   z: [4.5, 9.5],     name: 'NewBuilding' },
+  { x: [4.75, 8.96],   z: [17.61, 22.61], name: 'Burguer' },
+  { x: [5.09, 7.94],   z: [10.85, 14.61], name: 'NewRestaurant' },
 ];
 
 async function main() {

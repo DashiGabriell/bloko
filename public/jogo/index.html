@@ -10,7 +10,12 @@
 <body>
   <div id="hud">
     <div id="hud-left">
-      <div id="player-count">👥 <span id="count">1</span></div>
+      <div id="player-count" role="button" tabindex="0">👥 <span id="count">1</span></div>
+      <div id="player-list-popup" class="glass-popup hidden">
+        <button class="glass-popup-close" aria-label="Fechar">&times;</button>
+        <div class="glass-popup-header">Jogadores na Sala</div>
+        <ul id="player-list"></ul>
+      </div>
     </div>
     <div id="hud-right">
       <div class="hud-right-group">
@@ -18,7 +23,7 @@
           <button id="user-avatar" aria-label="Abrir perfil"></button>
           <span id="user-name">Jogador</span>
         </div>
-        <button id="camera-toggle" class="glass-btn" aria-label="Alternar câmera">📹</button>
+        <button id="camera-toggle" class="glass-btn" aria-label="Alternar câmera" data-mode="isometric">🌐</button>
       </div>
     </div>
   </div>
@@ -158,8 +163,15 @@
 
     loadModalSettings();
 
-    document.getElementById('camera-toggle').addEventListener('click', () => {
+    const camBtn = document.getElementById('camera-toggle');
+    camBtn.addEventListener('click', () => {
       document.dispatchEvent(new CustomEvent('camera:toggle'));
+    });
+    document.addEventListener('camera:mode-changed', (e) => {
+      const mode = e.detail.mode;
+      camBtn.dataset.mode = mode;
+      camBtn.textContent = mode === 'thirdPerson' ? '🎥' : '🌐';
+      camBtn.title = mode === 'thirdPerson' ? 'Mudar para Isométrica' : 'Mudar para 3ª Pessoa';
     });
   </script>
 

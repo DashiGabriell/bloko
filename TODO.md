@@ -19,9 +19,9 @@
 - [ ] **[F3.4]** Interface de Fechamento: Botão 'X' para fechar o iframe e devolver o controle ao jogador
 
 ## Fase 4: Ajustes Mobile, Gestão de Salas e Deploy
-- [ ] **[F4.1]** Controle Touch: Implementar NippleJS para analógico virtual em dispositivos móveis
+- [x] **[F4.1]** Controle Touch: Implementar  analógico virtual em dispositivos móveis
 - [ ] **[F4.2]** Lógica de Lotação: Limitar 10 usuários por sala e criar novas salas automaticamente
-- [ ] **[F4.3]** Hospedagem Front-end: Deploy em Vercel ou Netlify
+- [x] **[F4.3]** Hospedagem Front-end: Deploy em Vercel ou Netlify
 - [ ] **[F4.4]** Hospedagem Back-end: Deploy do servidor Node.js em Render ou Railway
 
 ## Critério de Sucesso
