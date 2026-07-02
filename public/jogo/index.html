@@ -169,6 +169,13 @@
     <p>Carregando BLOKKO...</p>
   </div>
 
+  <div id="store-overlay" class="hidden">
+    <div id="store-overlay-content">
+      <button id="store-overlay-close" aria-label="Fechar loja">&times;</button>
+      <iframe id="store-iframe" src="about:blank" frameborder="0" allowfullscreen></iframe>
+    </div>
+  </div>
+
   <script type="module">
     const res = await fetch('/api/auth/config');
     const config = await res.json();

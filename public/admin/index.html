@@ -21,6 +21,7 @@
         <button class="nav-btn" data-tab="network">Rede</button>
         <button class="nav-btn" data-tab="rooms">Salas</button>
         <button class="nav-btn" data-tab="stores">Lojas</button>
+        <button class="nav-btn" data-tab="players">Jogadores</button>
         <button class="nav-btn" data-tab="debug">Debug</button>
         <button class="nav-btn" data-tab="build">Build</button>
       </nav>
@@ -98,8 +99,26 @@
           <div class="form-grid" id="roomsContainer"></div>
         </div>
         <div class="card">
-          <h3>Salas Ativas</h3>
+          <h3>Gerenciar Salas</h3>
+          <p class="card-desc">Crie, edite ou remova salas do ambiente.</p>
           <div id="roomsList"><p class="empty-state">Nenhuma sala encontrada.</p></div>
+          <div class="room-form-wrapper" style="margin-top:16px">
+            <h4 id="roomFormTitle">Nova Sala</h4>
+            <form id="roomForm" class="store-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Nome</label>
+                  <input type="text" name="name" required placeholder="Ex: Quadra Principal">
+                </div>
+                <div class="form-group">
+                  <label>Max Jogadores</label>
+                  <input type="number" name="max_players" min="1" max="100" value="10">
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary" id="roomFormBtn">Adicionar Sala</button>
+              <button type="button" class="btn btn-outline mt-1" id="roomCancelBtn" style="display:none">Cancelar</button>
+            </form>
+          </div>
         </div>
       </div>
 
@@ -110,7 +129,7 @@
           <div id="storesContainer"></div>
         </div>
         <div class="card">
-          <h3>Nova Loja</h3>
+          <h3 id="storeFormTitle">Nova Loja</h3>
           <form id="storeForm" class="store-form">
             <div class="form-row">
               <div class="form-group">
@@ -158,8 +177,31 @@
                 </select>
               </div>
             </div>
-            <button type="submit" class="btn btn-primary">Adicionar Loja</button>
+            <button type="submit" class="btn btn-primary" id="storeFormBtn">Adicionar Loja</button>
+            <button type="button" class="btn btn-outline mt-1" id="storeCancelBtn" style="display:none">Cancelar</button>
           </form>
+        </div>
+      </div>
+
+      <div class="tab-content" id="tab-players">
+        <div class="card">
+          <div class="players-header">
+            <div>
+              <h3>Jogadores</h3>
+              <p class="card-desc">Lista de todos os jogadores registrados.</p>
+            </div>
+            <div class="players-tabs">
+              <button class="players-tab active" data-filter="all">Todos</button>
+              <button class="players-tab" data-filter="online">Online</button>
+              <button class="players-tab" data-filter="offline">Histórico</button>
+            </div>
+          </div>
+          <div id="playersBatchBar" class="batch-bar hidden">
+            <span id="selectedCount">0 selecionado(s)</span>
+            <button class="btn btn-sm btn-danger" id="batchDeleteBtn" disabled>Excluir Selecionados</button>
+            <button class="btn btn-sm btn-outline" id="batchClearBtn">Limpar</button>
+          </div>
+          <div id="playersContainer"><p class="empty-state">Carregando...</p></div>
         </div>
       </div>
 

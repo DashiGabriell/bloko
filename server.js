@@ -42,7 +42,7 @@ const cfg = configManager.getConfig();
 const io = new Server(server, {
   cors: {
     origin: cfg.network.corsOrigin || process.env.CORS_ORIGIN || '*',
-    methods: ['GET', 'POST'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
   },
 });
 
@@ -101,29 +101,81 @@ app.get('/admin', (req, res) => {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// === CONFIG API ===
-app.get('/api/admin/config', (req, res) => {
-  res.json(configManager.getConfig());
+// === SETTINGS API (DB-backed config) ===
+app.get('/api/admin/config', async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin.rpc('get_all_settings');
+    if (error) throw error;
+    const settings = data || {};
+    const fullConfig = configManager.getConfig();
+    const merged = { ...fullConfig, ...settings };
+    res.json(merged);
+  } catch (err) {
+    console.error('[Settings] Erro ao ler configuração do banco:', err.message);
+    res.json(configManager.getConfig());
+  }
 });
 
-app.put('/api/admin/config', (req, res) => {
-  const success = configManager.saveConfig(req.body);
-  if (success) {
-    const newCfg = configManager.getConfig();
-    io.emit('config:update', newCfg);
-    res.json(newCfg);
-  } else {
+app.put('/api/admin/config', async (req, res) => {
+  try {
+    const updates = req.body;
+    const sections = ['features', 'environment', 'network', 'rooms', 'debug', 'build', 'admin'];
+
+    for (const section of sections) {
+      if (updates[section]) {
+        const { data: existing } = await supabaseAdmin
+          .from('settings')
+          .select('value')
+          .eq('section', section)
+          .single();
+
+        const mergedValue = existing?.value
+          ? { ...existing.value, ...updates[section] }
+          : updates[section];
+
+        await supabaseAdmin
+          .from('settings')
+          .upsert(
+            { section, value: mergedValue },
+            { onConflict: 'section' }
+          );
+      }
+    }
+
+    configManager.saveConfig(updates);
+
+    const { data: freshSettings, error } = await supabaseAdmin.rpc('get_all_settings');
+    if (error) throw error;
+    const fullConfig = configManager.getConfig();
+    const merged = { ...fullConfig, ...(freshSettings || {}) };
+
+    io.emit('config:update', merged);
+    res.json(merged);
+  } catch (err) {
+    console.error('[Settings] Erro ao salvar configuração:', err.message);
     res.status(500).json({ error: 'Falha ao salvar configuração' });
   }
 });
 
-app.post('/api/admin/config/reset', (req, res) => {
-  const success = configManager.resetConfig();
-  if (success) {
-    const defaults = configManager.getConfig();
+app.post('/api/admin/config/reset', async (req, res) => {
+  try {
+    const defaults = configManager.getDefaults();
+    const sections = ['features', 'environment', 'network', 'rooms', 'debug', 'build', 'admin'];
+
+    for (const section of sections) {
+      if (defaults[section]) {
+        await supabaseAdmin.rpc('upsert_setting', {
+          p_section: section,
+          p_value: defaults[section],
+        });
+      }
+    }
+
+    configManager.resetConfig();
     io.emit('config:update', defaults);
     res.json(defaults);
-  } else {
+  } catch (err) {
+    console.error('[Settings] Erro ao resetar configuração:', err.message);
     res.status(500).json({ error: 'Falha ao resetar configuração' });
   }
 });
@@ -134,7 +186,39 @@ app.get('/api/admin/stats', async (req, res) => {
     const { count: players } = await supabaseAdmin.from('players').select('*', { count: 'exact', head: true }).eq('status', 'online');
     const { count: rooms } = await supabaseAdmin.from('rooms').select('*', { count: 'exact', head: true });
     const { count: stores } = await supabaseAdmin.from('stores').select('*', { count: 'exact', head: true });
-    res.json({ players, rooms, stores });
+    const { count: totalPlayers } = await supabaseAdmin.from('players').select('*', { count: 'exact', head: true });
+    res.json({ players, rooms, stores, totalPlayers });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// === PLAYERS API ===
+app.get('/api/admin/players', async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('players')
+      .select('id, nickname, avatar_color, status, last_position, last_seen_at, created_at')
+      .order('last_seen_at', { ascending: false })
+      .limit(100);
+    if (error) throw error;
+    res.json(data || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/admin/players/:id', async (req, res) => {
+  try {
+    const { error: rpErr } = await supabaseAdmin.from('room_players').delete().eq('player_id', req.params.id);
+    if (rpErr) console.warn('Aviso ao limpar room_players:', rpErr.message);
+
+    const { error: pvErr } = await supabaseAdmin.from('player_visits').delete().eq('player_id', req.params.id);
+    if (pvErr) console.warn('Aviso ao limpar player_visits:', pvErr.message);
+
+    const { error } = await supabaseAdmin.from('players').delete().eq('id', req.params.id);
+    if (error) throw error;
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -143,8 +227,50 @@ app.get('/api/admin/stats', async (req, res) => {
 // === ROOMS API ===
 app.get('/api/admin/rooms', async (req, res) => {
   try {
-    const { data } = await supabaseAdmin.from('rooms').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabaseAdmin.from('rooms').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
     res.json(data || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/rooms', async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin.from('rooms').insert({
+      name: req.body.name || 'Nova Sala',
+      max_players: req.body.max_players || 10,
+      current_players: 0,
+      is_full: false,
+    }).select().single();
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/admin/rooms/:id', async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin.from('rooms').update({
+      name: req.body.name,
+      max_players: req.body.max_players,
+    }).eq('id', req.params.id).select().single();
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/admin/rooms/:id', async (req, res) => {
+  try {
+    const { error: rpErr } = await supabaseAdmin.from('room_players').delete().eq('room_id', req.params.id);
+    if (rpErr) console.warn('Aviso ao limpar room_players:', rpErr.message);
+
+    const { error } = await supabaseAdmin.from('rooms').delete().eq('id', req.params.id);
+    if (error) throw error;
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

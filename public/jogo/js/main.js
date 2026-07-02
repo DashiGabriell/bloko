@@ -232,13 +232,75 @@ socket.on('player-disconnected', (id) => {
   updateHUDCount();
 });
 
+socket.on('store:open', (store) => {
+  showStoreOverlay(store);
+});
+
+socket.on('store:closed', () => {
+  hideStoreOverlay();
+});
+
+camCtrl.onEnterStore = (storeId) => {
+  if (SERVER_CONFIG?.features?.iframePortals !== false) {
+    socket.emit('store:enter', { storeId });
+  }
+};
+
+camCtrl.onLeaveStore = () => {
+  socket.emit('store:leave');
+};
+
+document.addEventListener('click', (e) => {
+  const closeBtn = document.getElementById('store-overlay-close');
+  if (closeBtn && closeBtn.contains(e.target)) {
+    hideStoreOverlay();
+    socket.emit('store:leave');
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    hideStoreOverlay();
+    socket.emit('store:leave');
+  }
+});
+
 // --- COLLISION BOXES FOR BUILDINGS ---
-const buildingBounds = [
+let buildingBounds = [
   { x: [-7.5, -2.5], z: [-9.5, -5.5] },
   { x: [2.5, 7.5], z: [-9.5, -5.5] },
   { x: [-7.5, -2.5], z: [5.5, 9.5] },
   { x: [2.5, 7.5], z: [5.5, 9.5] },
+  { x: [-13.35, -8.35], z: [-9.5, -5.5] },
+  { x: [8.9, 15.6], z: [-11.3, -4.4] },
+  { x: [15.5, 21.0], z: [-8.5, -4.0] },
+  { x: [16.5, 22.0], z: [4.5, 9.5] },
 ];
+
+async function loadSceneMetadata() {
+  try {
+    const res = await fetch('/assets/scene-metadata.json');
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function showStoreOverlay(store) {
+  const overlay = document.getElementById('store-overlay');
+  const iframe = document.getElementById('store-iframe');
+  if (!overlay || !iframe) return;
+  iframe.src = store.site_url || 'about:blank';
+  overlay.classList.remove('hidden');
+}
+
+function hideStoreOverlay() {
+  const overlay = document.getElementById('store-overlay');
+  const iframe = document.getElementById('store-iframe');
+  if (overlay) overlay.classList.add('hidden');
+  if (iframe) iframe.src = 'about:blank';
+}
 
 function checkCollision(x, z) {
   const padding = PLAYER_SIZE / 2 + 0.1;
@@ -327,7 +389,7 @@ loader.setDRACOLoader(dracoLoader);
 
 loader.load(
   '/assets/scene.glb',
-  (gltf) => {
+  async (gltf) => {
     worldGroup = gltf.scene;
 
     worldGroup.traverse((child) => {
@@ -340,6 +402,28 @@ loader.load(
 
     worldGroup.position.set(0, 0, 0);
     scene.add(worldGroup);
+
+    const metadata = await loadSceneMetadata();
+    if (metadata) {
+      if (metadata.buildings && metadata.buildings.length > 0) {
+        buildingBounds = metadata.buildings.map(b => ({
+          name: b.name,
+          x: [b.bounds.x[0], b.bounds.x[1]],
+          z: [b.bounds.z[0], b.bounds.z[1]],
+        }));
+        console.log(`Collision bounds carregados: ${buildingBounds.length} edificio(s)`);
+      }
+      if (metadata.stores && metadata.stores.length > 0) {
+        const storeZones = metadata.stores.map(s => ({
+          cx: s.center[0],
+          cz: s.center[1],
+          storeId: s.storeId,
+        }));
+        camCtrl.setStoreZones(storeZones);
+        console.log(`Store zones carregadas: ${storeZones.length} loja(s)`);
+      }
+    }
+
     sceneReady = true;
     hideLoading();
     console.log('Cena carregada!');

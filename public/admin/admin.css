@@ -478,6 +478,11 @@ body {
   color: var(--danger);
 }
 
+.store-status.connecting {
+  background: rgba(255,170,68,0.15);
+  color: var(--warning);
+}
+
 .badge {
   display: inline-block;
   padding: 2px 8px;
@@ -566,6 +571,106 @@ body {
   white-space: pre-wrap;
   color: var(--text-muted);
   line-height: 1.6;
+}
+
+/* === PLAYERS === */
+.players-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.players-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  flex-shrink: 0;
+}
+
+.players-tab {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+
+.players-tab:hover {
+  color: var(--text-primary);
+}
+
+.players-tab.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(0, 170, 255, 0.08);
+  border: 1px solid rgba(0, 170, 255, 0.2);
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+  animation: fadeIn 0.2s ease;
+}
+
+.batch-bar.hidden {
+  display: none;
+}
+
+#selectedCount {
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 600;
+  flex: 1;
+}
+
+.player-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+.player-row-selectable {
+  cursor: pointer;
+}
+
+.player-row-selectable:hover td {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.player-row-selectable.selected td {
+  background: rgba(0, 170, 255, 0.08) !important;
+}
+
+.player-session-time {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.player-position {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+}
+
+.player-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
 }
 
 /* === EMPTY STATE === */

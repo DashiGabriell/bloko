@@ -13,7 +13,7 @@
 - [x] **[F2.4]** Exportação: Arquivo .glb único com Draco Compression (116 KB)
 
 ## Fase 3: Integração e Portais Comerciais
-- [ ] **[F3.1]** Importação de Assets: Substituir cenário básico pelo .glb exportado do Blender
+- [x] **[F3.1]** Importação de Assets: Substituir cenário básico pelo .glb exportado do Blender
 - [ ] **[F3.2]** Gatilhos de Interação: Adicionar caixas de colisão invisíveis nas portas dos comércios
 - [ ] **[F3.3]** Abertura de Sites (Iframes): Ao colidir com a porta, abrir iframe com site real da loja
 - [ ] **[F3.4]** Interface de Fechamento: Botão 'X' para fechar o iframe e devolver o controle ao jogador

@@ -25,13 +25,6 @@ const STORE_ZOOM = {
   lookHeight: 1.8,
 };
 
-const STORE_ZONES = [
-  { cx: -5, cz: -7.5 },
-  { cx: 5, cz: -7.5 },
-  { cx: -5, cz: 7.5 },
-  { cx: 5, cz: 7.5 },
-];
-
 const TRIGGER_R = 4;
 
 export class CameraController {
@@ -41,6 +34,10 @@ export class CameraController {
     this.presetIndex = 0;
     this.mix = 0;
     this.storeTarget = null;
+    this.storeZones = [];
+    this.currentStoreId = null;
+    this.onEnterStore = null;
+    this.onLeaveStore = null;
 
     document.addEventListener('camera:toggle', () => this.togglePreset());
   }
@@ -50,6 +47,10 @@ export class CameraController {
 
   setDefaultDistance(d) { this.base.distance = d; }
   setDefaultHeight(h) { this.base.height = h; }
+
+  setStoreZones(zones) {
+    this.storeZones = zones;
+  }
 
   togglePreset() {
     this.presetIndex = (this.presetIndex + 1) % PRESETS.length;
@@ -64,7 +65,7 @@ export class CameraController {
   update(px, pz) {
     let nearest = null;
     let nearSq = Infinity;
-    for (const s of STORE_ZONES) {
+    for (const s of this.storeZones) {
       const dx = px - s.cx;
       const dz = pz - s.cz;
       const d = dx * dx + dz * dz;
@@ -75,8 +76,18 @@ export class CameraController {
     }
 
     if (nearest) {
+      if (this.currentStoreId !== nearest.storeId) {
+        if (this.currentStoreId && this.onLeaveStore) this.onLeaveStore(this.currentStoreId);
+        this.currentStoreId = nearest.storeId;
+        if (this.onEnterStore) this.onEnterStore(nearest.storeId);
+      }
       this.mix = Math.min(this.mix + 0.04, 1);
       this.storeTarget = nearest;
+    } else if (this.currentStoreId) {
+      if (this.onLeaveStore) this.onLeaveStore(this.currentStoreId);
+      this.currentStoreId = null;
+      this.mix = Math.max(this.mix - 0.04, 0);
+      if (this.mix === 0) this.storeTarget = null;
     } else {
       this.mix = Math.max(this.mix - 0.04, 0);
       if (this.mix === 0) this.storeTarget = null;

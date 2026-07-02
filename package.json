@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "build:scene": "node tools/build-scene.mjs && npx gltf-transform draco public/assets/scene.glb public/assets/scene.glb",
+    "analyze:scene": "node tools/analyze-scene.mjs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -22,5 +23,8 @@
     "nipplejs": "^0.10.2",
     "socket.io": "^4.8.3",
     "three": "^0.185.0"
+  },
+  "devDependencies": {
+    "draco3d": "^1.5.7"
   }
 }

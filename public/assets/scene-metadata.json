@@ -1,0 +1,141 @@
+{
+  "version": 2,
+  "generatedAt": "2026-07-02T18:09:05.842Z",
+  "buildings": [
+    {
+      "name": "Café",
+      "bounds": {
+        "x": [
+          -7.5,
+          -2.5
+        ],
+        "z": [
+          -9.5,
+          -5.5
+        ]
+      }
+    },
+    {
+      "name": "Farmácia",
+      "bounds": {
+        "x": [
+          2.5,
+          7.5
+        ],
+        "z": [
+          -9.5,
+          -5.5
+        ]
+      }
+    },
+    {
+      "name": "Padaria",
+      "bounds": {
+        "x": [
+          -7.5,
+          -2.5
+        ],
+        "z": [
+          5.5,
+          9.5
+        ]
+      }
+    },
+    {
+      "name": "Barbearia",
+      "bounds": {
+        "x": [
+          2.5,
+          7.5
+        ],
+        "z": [
+          5.5,
+          9.5
+        ]
+      }
+    },
+    {
+      "name": "loja1.002",
+      "bounds": {
+        "x": [
+          -13.35,
+          -8.35
+        ],
+        "z": [
+          -9.5,
+          -5.5
+        ]
+      }
+    },
+    {
+      "name": "Hotel",
+      "bounds": {
+        "x": [
+          8.9,
+          15.6
+        ],
+        "z": [
+          -11.3,
+          -4.4
+        ]
+      }
+    },
+    {
+      "name": "Restaurant",
+      "bounds": {
+        "x": [
+          15.5,
+          21
+        ],
+        "z": [
+          -8.5,
+          -4
+        ]
+      }
+    },
+    {
+      "name": "NewBuilding",
+      "bounds": {
+        "x": [
+          16.5,
+          22
+        ],
+        "z": [
+          4.5,
+          9.5
+        ]
+      }
+    }
+  ],
+  "stores": [],
+  "doorPositions": [
+    {
+      "name": "Door_SmallBuilding",
+      "position": [
+        -10.87,
+        -5.3
+      ]
+    },
+    {
+      "name": "Door_Hotel",
+      "position": [
+        14.88,
+        -4.41
+      ]
+    },
+    {
+      "name": "Door_Restaurant",
+      "position": [
+        17.87,
+        -4.42
+      ]
+    },
+    {
+      "name": "Door_NewBuilding",
+      "position": [
+        19.56,
+        5.15
+      ]
+    }
+  ]
+}
